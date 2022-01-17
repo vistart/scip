@@ -121,8 +121,8 @@ set_property(CACHE TPI PROPERTY STRINGS none tny omp)  #define list of values GU
 set(EXPRINT cppad CACHE STRING "options for expression interpreter")  #create the variable
 set_property(CACHE EXPRINT PROPERTY STRINGS none cppad )  #define list of values GUI will offer for the variable
 
-set(LPS spx CACHE STRING "options for LP solver")  #create the variable
-set_property(CACHE LPS PROPERTY STRINGS spx cpx grb xprs clp glop msk qso none )  #define list of values GUI will offer for the variable
+set(LPS scs CACHE STRING "options for LP solver")  #create the variable
+set_property(CACHE LPS PROPERTY STRINGS scs spx cpx grb xprs clp glop msk qso none )  #define list of values GUI will offer for the variable
 
 set(SYM bliss CACHE STRING "options for symmetry computation")  #create the variable
 set_property(CACHE SYM PROPERTY STRINGS bliss none )  #define list of values GUI will offer for the variable
@@ -306,7 +306,10 @@ endif()
 
 #search the selected LP solver library
 message(STATUS "Finding Solver \"${LPS}\"")
-if(LPS STREQUAL "spx")
+if(LPS STREQUAL "scs")
+    message(STATUS "Finding scs")
+    find_package(scs REQUIRED)
+elseif(LPS STREQUAL "spx")
     message(STATUS "Finding Soplex")
     find_package(SOPLEX REQUIRED CONFIG HINTS ${SOPLEX_DIR})
     if(LPSCHECK)
@@ -336,6 +339,18 @@ else()
 endif()
 
 #setup the proper lpi file for the selected LP solver
+if(scs_FOUND)
+    message(STATUS "Finding SCS - found")
+    include_directories(${scs_INCLUDE_DIRS})
+    set(LPS_LIBRARIES ${scs_LIBRARIES})
+    if(SHARED)
+        set(LPS_PIC_LIBRARIES ${scs_PIC_LIBRARIES})
+    else()
+        set(LPS_PIC_LIBRARIES ${scs_LIBRARIES})
+    endif()
+else()
+    message(STATUS "Support SCS: OFF")
+endif()
 if(SOPLEX_FOUND)
     message(STATUS "Finding SOPLEX - found")
     # SoPlex headers can be directly included
