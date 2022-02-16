@@ -27,8 +27,8 @@
 #include "scip/pub_message.h"
 #include "scs.h"
 
-#define LPINAME          "SCS"              /**< name of the LPI interface */
-#define LPIINFINITY       1e20               /**< infinity value */
+#define LPINAME          "SCS"                               /**< name of the LPI interface */
+#define LPIINFINITY       1e+20    /**< infinity value */
 
 
 /* globally turn off lint warnings: */
@@ -39,16 +39,22 @@
 struct SCIP_LPi
 {
     //SPxSCIP*              scs;                /**< our SCS implementation */
+    ScsData*              scsdata;
+    ScsCone*              scscone;
+    ScsSettings*          scsstgs;
+    ScsSolution*          scssol;
+    ScsInfo*              scsinfo;
+    ScsWork*              scswork;            /**< our SCS work structure */
     int*                  cstat;              /**< array for storing column basis status */
     int*                  rstat;              /**< array for storing row basis status */
     int                   cstatsize;          /**< size of cstat array */
     int                   rstatsize;          /**< size of rstat array */
-    SCIP_PRICING          pricing;            /**< current pricing strategy */
-    SCIP_Bool             solved;             /**< was the current LP solved? */
+    // SCIP_PRICING          pricing;            /**< current pricing strategy */
+    // SCIP_Bool             solved;             /**< was the current LP solved? */
     //SLUFactor*            factorization;      /**< factorization possibly needed for basis inverse */
-    SCIP_Real             rowrepswitch;       /**< use row representation if number of rows divided by number of columns exceeds this value */
-    SCIP_Real             conditionlimit;     /**< maximum condition number of LP basis counted as stable (-1.0: no limit) */
-    SCIP_Bool             checkcondition;     /**< should condition number of LP basis be checked for stability? */
+    // SCIP_Real             rowrepswitch;       /**< use row representation if number of rows divided by number of columns exceeds this value */
+    // SCIP_Real             conditionlimit;     /**< maximum condition number of LP basis counted as stable (-1.0: no limit) */
+    // SCIP_Bool             checkcondition;     /**< should condition number of LP basis be checked for stability? */
     SCIP_MESSAGEHDLR*     messagehdlr;        /**< messagehdlr handler to printing messages, or NULL */
     int                   nrows;              /**< number of rows */
     int                   ncols;              /**< number of columns */
@@ -91,7 +97,7 @@ void errorMessage(
         void
 )
 {
-    SCIPerrorMessage("SCS is not ready to use (LPS=none).\n");
+    SCIPerrorMessage("SCS is not ready to use (LPS=scs).\n");
     SCIPerrorMessage("Ensure <lp/solvefreq = -1>; note that continuous variables might require an LP-solver.\n");
 }
 
@@ -130,7 +136,7 @@ void* SCIPlpiGetSolverPointer(
         SCIP_LPI*             lpi                 /**< pointer to an LP interface structure */
 )
 {  /*lint --e{715}*/
-    return (void*) NULL;
+    return (void*) lpi->scswork;
 }
 
 /** pass integrality information to LP solver */
@@ -149,7 +155,7 @@ SCIP_Bool SCIPlpiHasPrimalSolve(
         void
 )
 {
-    return FALSE;
+    return TRUE;
 }
 
 /** informs about availability of a dual simplex solving method */
@@ -157,7 +163,7 @@ SCIP_Bool SCIPlpiHasDualSolve(
         void
 )
 {
-    return FALSE;
+    return TRUE;
 }
 
 /** informs about availability of a barrier solving method */
@@ -188,13 +194,28 @@ SCIP_RETCODE SCIPlpiCreate(
         SCIP_OBJSEN           objsen              /**< objective sense */
 )
 {  /*lint --e{715}*/
+    //assert(sizeof(SCIP_REAL) == sizeof(scs_float)); /** 检查 SCIP 实数是否与 scs 实数类型相一致，一致才能计算。 */
     assert(lpi != NULL);
     assert(name != NULL);
+    printf("ObjSen: %d\n", objsen);
     SCIPdebugMessage("SCIPlpiCreate()\n");
-    SCIPdebugMessage("Note that the SCS is not ready.\n");
+    SCIPdebugMessage("Note that the SCIP is creating an SCS work...\n");
+    SCIP_ALLOC( BMSallocMemory(lpi));
+    (*lpi)->scscone = (ScsCone *)calloc(1, sizeof(ScsCone));
+    (*lpi)->scsdata = (ScsData *)calloc(1, sizeof(ScsData));
+    (*lpi)->scsstgs = (ScsSettings *)calloc(1, sizeof(ScsSettings));
+    (*lpi)->scssol = (ScsSolution *)calloc(1, sizeof(ScsSolution));
+    (*lpi)->scsinfo = (ScsInfo *)calloc(1, sizeof(ScsInfo));
 
-    /* create empty LPI */
-    SCIP_ALLOC( BMSallocMemory(lpi) );
+    /* Utility to set default settings */
+    scs_set_default_settings((*lpi)->scsstgs);
+
+    /* Modify tolerances */
+    (*lpi)->scsstgs->eps_abs = 1e-9;
+    (*lpi)->scsstgs->eps_rel = 1e-9;
+
+    SCIPdebugMessage("size of scs_int = %lu, size of scs_float = %lu\n", sizeof(scs_int), sizeof(scs_float));
+
     (*lpi)->nrows = 0;
     (*lpi)->ncols = 0;
 
@@ -208,6 +229,17 @@ SCIP_RETCODE SCIPlpiFree(
 {  /*lint --e{715}*/
     assert( lpi != NULL );
     SCIPdebugMessage("SCIPlpiFree()\n");
+
+    /* Free allocated memory */
+    free((*lpi)->scscone);
+    free((*lpi)->scsdata);
+    free((*lpi)->scsstgs);
+    free((*lpi)->scsinfo);
+    /* SCS allocates sol->x,y,s if NULL on entry, need to be freed */
+    free((*lpi)->scssol->x);
+    free((*lpi)->scssol->y);
+    free((*lpi)->scssol->s);
+    free((*lpi)->scssol);
 
     BMSfreeMemory(lpi);
 
@@ -249,8 +281,11 @@ SCIP_RETCODE SCIPlpiLoadColLP(
 #ifndef NDEBUG
     {
         int j;
-        for( j = 0; j < nnonz; j++ )
-            assert( val[j] != 0 );
+        SCIPdebugMessage("SCIPlpiLoadColLP:\n");
+        for( j = 0; j < nnonz; j++ ) {
+            assert(val[j] != 0);
+            printf("val[%d]: %f\n", j, val[j]);
+        }
     }
 #endif
 
@@ -606,9 +641,9 @@ SCIP_RETCODE SCIPlpiGetNCols(
 {  /*lint --e{715}*/
     assert( lpi != NULL );
     assert( ncols != NULL );
-    assert( lpi->ncols >= 0 );
+    assert( lpi->scsdata != NULL );
 
-    *ncols = lpi->ncols;
+    *ncols = lpi->scsdata->n;
 
     return SCIP_OKAY;
 }
@@ -621,8 +656,16 @@ SCIP_RETCODE SCIPlpiGetNNonz(
 {  /*lint --e{715}*/
     assert(nnonz != NULL);
     assert(lpi != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    assert( lpi->scsdata != NULL );
+    assert( lpi->scsdata->A != NULL );
+    assert( lpi->scsdata->A->p != NULL );
+    double* p = lpi->scsdata->A->p;
+    *nnonz = 0;
+    while (p != NULL) {
+        *nnonz++;
+        p++;
+    }
+    return SCIP_OKAY;
 }
 
 /** gets columns from LP problem object; the arrays have to be large enough to store all values
@@ -1577,8 +1620,50 @@ SCIP_RETCODE SCIPlpiSetIntpar(
         int                   ival                /**< parameter value */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiSetIntpar()\n");
     assert(lpi != NULL);
-    return SCIP_PARAMETERUNKNOWN;
+
+    switch( type )
+    {
+        case SCIP_LPPAR_FROMSCRATCH:
+            assert(ival == TRUE || ival == FALSE);
+            break;
+        case SCIP_LPPAR_FASTMIP:
+            assert(ival == TRUE || ival == FALSE);
+            break;
+        case SCIP_LPPAR_REFACTOR:
+            assert(ival == TRUE || ival == FALSE);
+            break;
+        case SCIP_LPPAR_LPINFO:
+            assert(ival == TRUE || ival == FALSE);
+            break;
+        case SCIP_LPPAR_LPITLIM:
+            assert( ival >= 0 );
+            /* -1 <= ival, -1 meaning no time limit, 0 stopping immediately */
+            if( ival >= INT_MAX )
+                ival = -1;
+            break;
+        case SCIP_LPPAR_PRESOLVING:
+            assert(ival == TRUE || ival == FALSE);
+            break;
+        case SCIP_LPPAR_PRICING:
+            break;
+        case SCIP_LPPAR_SCALING:
+            assert(ival == TRUE || ival == FALSE);
+            break;
+        case SCIP_LPPAR_TIMING:
+            assert(ival >= 0 && ival < 3);
+            break;
+        case SCIP_LPPAR_RANDOMSEED:
+            break;
+        case SCIP_LPPAR_POLISHING:
+            assert(ival >= 0 && ival < 3);
+            break;
+        default:
+            return SCIP_PARAMETERUNKNOWN;
+    }  /*lint !e788*/
+
+    return SCIP_OKAY;
 }
 
 /** gets floating point parameter of LP */
@@ -1600,8 +1685,28 @@ SCIP_RETCODE SCIPlpiSetRealpar(
         SCIP_Real             dval                /**< parameter value */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiSetRealpar()\n");
     assert(lpi != NULL);
-    return SCIP_PARAMETERUNKNOWN;
+    switch( type )
+    {
+        case SCIP_LPPAR_FEASTOL:
+            break;
+        case SCIP_LPPAR_DUALFEASTOL:
+            break;
+        case SCIP_LPPAR_OBJLIM:
+            break;
+        case SCIP_LPPAR_LPTILIM:
+            break;
+        case SCIP_LPPAR_ROWREPSWITCH:
+            break;
+        case SCIP_LPPAR_CONDITIONLIMIT:
+            break;
+        case SCIP_LPPAR_BARRIERCONVTOL:
+            break;
+        default:
+            return SCIP_PARAMETERUNKNOWN;
+    }  /*lint !e788*/
+    return SCIP_OKAY;
 }
 
 /** interrupts the currently ongoing lp solve or disables the interrupt */
