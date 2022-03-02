@@ -44,20 +44,25 @@ struct SCIP_LPi
     ScsSettings*          scsstgs;
     ScsSolution*          scssol;
     ScsInfo*              scsinfo;
-    ScsWork*              scswork;            /**< our SCS work structure */
-    int*                  cstat;              /**< array for storing column basis status */
-    int*                  rstat;              /**< array for storing row basis status */
-    int                   cstatsize;          /**< size of cstat array */
-    int                   rstatsize;          /**< size of rstat array */
+    ScsWork*              scswork;            /**< our SCS work structure *//* 暂时不启用 */
+    int*                  cstat;              /**< array for storing column basis status *//* 暂时不启用 */
+    int*                  rstat;              /**< array for storing row basis status *//* 暂时不启用 */
+    int                   cstatsize;          /**< size of cstat array *//* 暂时不启用 */
+    int                   rstatsize;          /**< size of rstat array *//* 暂时不启用 */
     // SCIP_PRICING          pricing;            /**< current pricing strategy */
     // SCIP_Bool             solved;             /**< was the current LP solved? */
     //SLUFactor*            factorization;      /**< factorization possibly needed for basis inverse */
     // SCIP_Real             rowrepswitch;       /**< use row representation if number of rows divided by number of columns exceeds this value */
     // SCIP_Real             conditionlimit;     /**< maximum condition number of LP basis counted as stable (-1.0: no limit) */
     // SCIP_Bool             checkcondition;     /**< should condition number of LP basis be checked for stability? */
-    SCIP_MESSAGEHDLR*     messagehdlr;        /**< messagehdlr handler to printing messages, or NULL */
+    SCIP_MESSAGEHDLR*     messagehdlr;        /**< messagehdlr handler to printing messages, or NULL *//* 暂时不启用 */
     int                   nrows;              /**< number of rows */
     int                   ncols;              /**< number of columns */
+    int                   n;                  /**< number of variables */
+    int                   m;                  /**< number of constraints */
+    SCIP_OBJSEN           objsen;             /**< objective sense */
+    const char*           name;               /**< problem name */
+
 };
 
 /** LPi state stores basis information */
@@ -195,12 +200,16 @@ SCIP_RETCODE SCIPlpiCreate(
 )
 {  /*lint --e{715}*/
     //assert(sizeof(SCIP_REAL) == sizeof(scs_float)); /** 检查 SCIP 实数是否与 scs 实数类型相一致，一致才能计算。 */
+    SCIPdebugMessage("SCIPlpiCreate()\n");
+
     assert(lpi != NULL);
     assert(name != NULL);
-    printf("ObjSen: %d\n", objsen);
-    SCIPdebugMessage("SCIPlpiCreate()\n");
-    SCIPdebugMessage("Note that the SCIP is creating an SCS work...\n");
     SCIP_ALLOC( BMSallocMemory(lpi));
+    SCIPdebugMessage("Name: %s\n", name);
+    (*lpi)->name = name;
+    SCIPdebugMessage("ObjSen: %d\n", objsen);
+    (*lpi)->objsen = objsen;
+    SCIPdebugMessage("Note that the SCIP is creating an SCS work...\n");
     (*lpi)->scscone = (ScsCone *)calloc(1, sizeof(ScsCone));
     (*lpi)->scsdata = (ScsData *)calloc(1, sizeof(ScsData));
     (*lpi)->scsstgs = (ScsSettings *)calloc(1, sizeof(ScsSettings));
@@ -208,9 +217,11 @@ SCIP_RETCODE SCIPlpiCreate(
     (*lpi)->scsinfo = (ScsInfo *)calloc(1, sizeof(ScsInfo));
 
     /* Utility to set default settings */
+    /** TODO: 修改参数 */
     scs_set_default_settings((*lpi)->scsstgs);
 
     /* Modify tolerances */
+    /** TODO: 修改参数 */
     (*lpi)->scsstgs->eps_abs = 1e-9;
     (*lpi)->scsstgs->eps_rel = 1e-9;
 
@@ -218,6 +229,8 @@ SCIP_RETCODE SCIPlpiCreate(
 
     (*lpi)->nrows = 0;
     (*lpi)->ncols = 0;
+    (*lpi)->n = 0;
+    (*lpi)->m = 0;
 
     return SCIP_OKAY;
 }
@@ -307,7 +320,7 @@ SCIP_RETCODE SCIPlpiLoadColLP(
     return SCIP_OKAY;
 }
 
-/** adds columns to the LP */
+/** adds columns to the LP *//* variables */
 SCIP_RETCODE SCIPlpiAddCols(
         SCIP_LPI*             lpi,                /**< LP interface structure */
         int                   ncols,              /**< number of columns to be added */
@@ -343,9 +356,28 @@ SCIP_RETCODE SCIPlpiAddCols(
         }
     }
 #endif
-
-    lpi->ncols += ncols;
-
+    /**
+     * TODO:
+     * 1. 获取现在的c向量和n值；
+     * 2. 如果某个向量索引已存在，则替换；不存在，则新增。
+     */
+    double* c = lpi->scsdata->c;
+    int n = lpi->n;
+    int start, last;
+    for (int i = 0; i < ncols; ++i) {
+        if (nnonz > 0) {
+            start = beg[i];
+            last = (i == ncols - 1 ? nnonz : beg[i + 1]);
+        }
+        if (ncols > n) {
+            // 当前索引超出向量尺寸，应当扩容。
+            n = ncols;
+            c = realloc(c, sizeof(double) * n);
+        }
+        c[i] = obj[i];
+        SCIPdebugMessage("c[%d]: %f\n", i, obj[i]);
+    }
+    lpi->scsdata->c = c;
     return SCIP_OKAY;
 }
 
@@ -396,7 +428,7 @@ SCIP_RETCODE SCIPlpiDelColset(
     return SCIP_OKAY;
 }
 
-/** adds rows to the LP */
+/** adds rows to the LP *//* constraints */
 SCIP_RETCODE SCIPlpiAddRows(
         SCIP_LPI*             lpi,                /**< LP interface structure */
         int                   nrows,              /**< number of rows to be added */
@@ -409,7 +441,7 @@ SCIP_RETCODE SCIPlpiAddRows(
         const SCIP_Real*      val                 /**< values of constraint matrix entries, or NULL if nnonz == 0 */
 )
 {  /*lint --e{715}*/
-
+    SCIPdebugMessage("calling SCIPlpiAddRows()\n");
     assert( lpi != NULL );
     assert( lpi->nrows >= 0 );
     assert(lhs != NULL);
