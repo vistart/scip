@@ -21,6 +21,20 @@ set(ADD_C_AND_CXX_FLAGS -pedantic -Wall -W -Wno-unknown-warning-option -Wno-unkn
 set(ADD_C_FLAGS -Wsign-compare -Wstrict-prototypes -Wmissing-declarations -Wmissing-prototypes -Wdeclaration-after-statement -Wno-override-init -Wno-uninitialized -Wno-maybe-uninitialized -Wno-initializer-overrides)
 set(ADD_CXX_FLAGS -Wctor-dtor-privacy -Wnon-virtual-dtor -Wreorder -Woverloaded-virtual -Wsign-promo -Wsynth -Wcast-qual -Wno-strict-overflow -Wno-psabi)
 
+if (SCIP_DEBUG STREQUAL on)
+    message(STATUS "SCIP_DEBUG on")
+    add_compile_definitions(SCIP_DEBUG)
+else()
+    message(STATUS "SCIP_DEBUG off")
+endif()
+
+if(PROBLEM_DEBUG STREQUAL on)
+    message(STATUS "PROBLEM_DEBUG on")
+    add_compile_definitions(PROBLEM_DEBUG)
+else()
+    message(STATUS "PROBLEM_DEBUG off")
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
    # for intel compilers we need to set the fp-model precise flag to disable incorrect floating point optimizations
    add_compile_options(-fp-model precise)
