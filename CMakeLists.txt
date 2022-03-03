@@ -136,7 +136,7 @@ set(EXPRINT cppad CACHE STRING "options for expression interpreter")  #create th
 set_property(CACHE EXPRINT PROPERTY STRINGS none cppad )  #define list of values GUI will offer for the variable
 
 set(LPS scs CACHE STRING "options for LP solver")  #create the variable
-set_property(CACHE LPS PROPERTY STRINGS scs spx cpx grb xprs clp glop msk qso none )  #define list of values GUI will offer for the variable
+set_property(CACHE LPS PROPERTY STRINGS scs scs_cpp spx cpx grb xprs clp glop msk qso none )  #define list of values GUI will offer for the variable
 
 set(SYM bliss CACHE STRING "options for symmetry computation")  #create the variable
 set_property(CACHE SYM PROPERTY STRINGS bliss none )  #define list of values GUI will offer for the variable
@@ -323,6 +323,9 @@ message(STATUS "Finding Solver \"${LPS}\"")
 if(LPS STREQUAL "scs")
     message(STATUS "Finding scs")
     find_package(scs REQUIRED)
+elseif(LPS STREQUAL "scs_cpp")
+    message(STATUS "Finding scs in cpp")
+    find_package(scs REQUIRED)
 elseif(LPS STREQUAL "spx")
     message(STATUS "Finding Soplex")
     find_package(SOPLEX REQUIRED CONFIG HINTS ${SOPLEX_DIR})
@@ -354,7 +357,11 @@ endif()
 
 #setup the proper lpi file for the selected LP solver
 if(scs_FOUND)
-    message(STATUS "Finding SCS - found")
+    if(LPS STREQUAL "scs")
+        message(STATUS "Finding scs - found")
+    elseif(LPS STREQUAL "scs_cpp")
+        message(STATUS "Finding scs in cpp - found")
+    endif()
     include_directories(${scs_INCLUDE_DIRS})
     set(LPS_LIBRARIES ${scs_LIBRARIES})
     set(LPS_PIC_LIBRARIES ${scs_LIBRARIES})
@@ -362,7 +369,11 @@ if(scs_FOUND)
     message(STATUS "scs_LIBRARIES: ${scs_LIBRARIES}")
     message(STATUS "LPS_LIBRARIES: ${LPS_LIBRARIES}")
     message(STATUS "LPS_PIC_LIBRARIES: ${LPS_PIC_LIBRARIES}")
-    set(lpi lpi/lpi_scs.c)
+    if(LPS STREQUAL "scs")
+        set(lpi lpi/lpi_scs.c)
+    elseif(LPS STREQUAL "scs_cpp")
+        set(lpi lpi/lpi_scs.cpp)
+    endif()
 else()
     message(STATUS "Support SCS: OFF")
 endif()
