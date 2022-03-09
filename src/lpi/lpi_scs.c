@@ -1,27 +1,28 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*                                                                           */
-/*                  This file is part of the program and library             */
-/*         SCIP --- Solving Constraint Integer Programs                      */
-/*                                                                           */
-/*    Copyright (C) 2002-2022 Konrad-Zuse-Zentrum                            */
-/*                            fuer Informationstechnik Berlin                */
-/*                                                                           */
-/*  SCIP is distributed under the terms of the ZIB Academic License.         */
-/*                                                                           */
-/*  You should have received a copy of the ZIB Academic License              */
-/*  along with SCIP; see the file COPYING. If not visit scipopt.org.         */
-/*                                                                           */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/**
+ *  __   __  ___   _______  _______  _______  ______    _______
+ * |  | |  ||   | |       ||       ||   _   ||    _ |  |       |
+ * |  |_|  ||   | |  _____||_     _||  |_|  ||   | ||  |_     _|
+ * |       ||   | | |_____   |   |  |       ||   |_||_   |   |
+ * |       ||   | |_____  |  |   |  |       ||    __  |  |   |
+ *  |     | |   |  _____| |  |   |  |   _   ||   |  | |  |   |
+ *   |___|  |___| |_______|  |___|  |__| |__||___|  |_|  |___|
+ */
 
-/**@file   lpi_none.c
+/**
+ * @file   lpi_scs.c
  * @ingroup LPIS
- * @brief  dummy interface for the case no LP solver is needed
- * @author Stefan Heinz
+ * @brief  SCIP LP interface for SCS.
+ * @author vistart<i@vistart.me>
+ * @copyright Copyright (c) 2021 - 2022 vistart
+ * @link https://vistart.me/
+ * @link https://github.com/vistart/scip
+ * @license https://vistart.me/license/
  */
 
 /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
 #include <assert.h>
+#include <string.h>
 
 #include "lpi/lpi.h"
 #include "scip/pub_message.h"
@@ -34,6 +35,20 @@
 /* globally turn off lint warnings: */
 /*lint --e{715}*/
 
+
+struct SCIP_Column
+{
+    SCIP_Real obj;
+    SCIP_Real lb;
+    SCIP_Real ub;
+    char* name;
+};
+
+struct SCIP_Columns
+{
+    struct SCIP_Column** columns_ptr;
+    int          ncols;
+};
 
 /** LP interface */
 struct SCIP_LPi
@@ -62,7 +77,11 @@ struct SCIP_LPi
     int                   m;                  /**< number of constraints */
     SCIP_OBJSEN           objsen;             /**< objective sense */
     const char*           name;               /**< problem name */
-
+    SCIP_Real** constraints;                  /**< 未压缩约束矩阵。每一行代表一条约束规则 */
+    int nconstraints;                         /**< 未压缩约束矩阵行数 */
+    SCIP_Real* bounds;                        /**< 约束矩阵对应的边界向量 */
+    //int nbounds;                            /**< 约束矩阵对应的边界向量元素个数，应当与 lpi->nconstraints 相同，故此成员暂不启用。 */
+    struct SCIP_Columns* columns;
 };
 
 /** LPi state stores basis information */
@@ -114,6 +133,234 @@ void errorMessage(
 /*
  * Miscellaneous Methods
  */
+
+const SCIP_Real getColLowerBoundReal(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    return lpi->columns->columns_ptr[col]->lb;
+}
+
+SCIP_RETCODE setColLowerBoundReal(
+    SCIP_LPI* lpi,
+    int col,
+    SCIP_Real val
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    lpi->columns->columns_ptr[col]->lb = val;
+    return SCIP_OKAY;
+}
+
+const SCIP_Real getColUpperBoundReal(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    return lpi->columns->columns_ptr[col]->ub;
+}
+
+SCIP_RETCODE setColUpperBoundReal(
+    SCIP_LPI* lpi,
+    int col,
+    SCIP_Real val
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    lpi->columns->columns_ptr[col]->ub = val;
+    return SCIP_OKAY;
+}
+
+const SCIP_Real getColObjReal(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    return lpi->columns->columns_ptr[col]->obj;
+}
+
+SCIP_RETCODE setColObjReal(
+    SCIP_LPI* lpi,
+    int col,
+    SCIP_Real val
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    lpi->columns->columns_ptr[col]->obj = val;
+    return SCIP_OKAY;
+}
+
+const char* getColName(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    return lpi->columns->columns_ptr[col]->name;
+}
+
+SCIP_RETCODE setColName(
+    SCIP_LPI* lpi,
+    int col,
+    char* val
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->ncols > 0);
+    assert(lpi->columns->ncols > col);
+    assert(lpi->columns->columns_ptr != NULL);
+    lpi->columns->columns_ptr[col]->name = val;
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE debugPrintColumn(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->columns_ptr != NULL);
+    SCIPdebugMessage("Col[%d]: %s, (%8.2f, %8.2f)\n", col, getColName(lpi, col), getColLowerBoundReal(lpi, col), getColUpperBoundReal(lpi ,col));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE debugPrintAllColumns(
+    SCIP_LPI* lpi
+)
+{
+    SCIPdebugMessage("calling debugPrintAllColumns.\n");
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    for (int i = 0; i < lpi->columns->ncols; i++)
+    {
+        debugPrintColumn(lpi, i);
+    }
+    return SCIP_OKAY;
+}
+
+/**
+ * 释放指定列。
+ * 注意：释放操作后指针指向 NULL，并不会缩小columns_ptr的尺寸，也不会改变其它任何columns_ptr指针的值，仅为方便清空列（clearColumns）而设。
+ * 因此，如果要删除某个列，则应当在删除后主动挪动后续指针值，并修改列总数（ncols）。
+ */
+SCIP_RETCODE freeColumn(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(col < lpi->columns->ncols);
+    if (lpi->columns->columns_ptr[col] != NULL)
+    {
+        free(lpi->columns->columns_ptr[col]);
+    }
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE resizeColumns(
+    SCIP_LPI* lpi,
+    int newsize
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    if (lpi->columns->columns_ptr == NULL)
+    {
+        lpi->columns->columns_ptr = (struct SCIP_Column**)malloc(sizeof(struct SCIP_Column*) * newsize);
+    }
+    else if (newsize > 0)
+    {
+        lpi->columns->columns_ptr = realloc(lpi->columns->columns_ptr, sizeof(struct SCIP_Column*) * newsize);
+    }
+    lpi->columns->ncols = newsize;
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE initColumn(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->columns->columns_ptr != NULL);
+    assert(lpi->columns->ncols > col);
+    /*
+    if (lpi->columns->columns_ptr[col] != NULL)
+    {
+        free(lpi->columns->columns_ptr[col]);
+    }*/
+    lpi->columns->columns_ptr[col] = (struct SCIP_Column*)malloc(sizeof(struct SCIP_Column));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE initColumns(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    /*
+    if (lpi->columns != NULL)
+    {
+        free(lpi->columns);
+    }*/
+    lpi->columns = (struct SCIP_Columns*)malloc(sizeof(struct SCIP_Columns));
+    lpi->columns->columns_ptr = NULL;
+    lpi->columns->ncols = 0;
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE clearColumns(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    if (lpi->columns == NULL)
+    {
+        return SCIP_OKAY;
+    }
+    for (int i = 0; i < lpi->columns->ncols; i++)
+    {
+        freeColumn(lpi, i);
+    }
+    initColumns(lpi);
+    return SCIP_OKAY;
+}
 
 /**@name Miscellaneous Methods */
 /**@{ */
@@ -181,7 +428,19 @@ SCIP_Bool SCIPlpiHasBarrierSolve(
 
 /**@} */
 
-
+ScsMatrix* ConstructPMatrix(int n)
+{
+    double* P_x = (double*)calloc(1, 0);
+    int* P_i = (int*)calloc(1, 0);
+    int* P_p = (int*)calloc(1, sizeof(int));
+    ScsMatrix* m = (ScsMatrix*)calloc(1, sizeof(ScsMatrix));
+    m->x = P_x;
+    m->i = P_i;
+    m->p = P_p;
+    m->m = n;
+    m->n = n;
+    return m;
+}
 
 
 /*
@@ -231,7 +490,36 @@ SCIP_RETCODE SCIPlpiCreate(
     (*lpi)->ncols = 0;
     (*lpi)->n = 0;
     (*lpi)->m = 0;
+    (*lpi)->nconstraints = 0;
+    (*lpi)->constraints = (SCIP_Real**)malloc(0);
+    (*lpi)->bounds = (SCIP_Real*)malloc(0);
+    //(*lpi)->nupperbounds = 0;
+    initColumns(*lpi);
+    return SCIP_OKAY;
+}
 
+SCIP_RETCODE resizeUpperBounds(
+        SCIP_LPI*             lpi,
+        int                   new_size
+)
+{/**
+    assert(lpi != NULL);
+    assert(new_size >= 0);
+    lpi->upperbounds = realloc(lpi->upperbounds, sizeof(double) * new_size);
+    lpi->nupperbounds = new_size;*/
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE resizeConstraints(
+        SCIP_LPI*             lpi,
+        int                   new_size
+)
+{/*
+    assert(lpi != NULL);
+    assert(new_size >= 0);
+    lpi->constraints = realloc(lpi->constraints, sizeof(double) * new_size);
+    lpi->nconstraints = new_size;
+    */
     return SCIP_OKAY;
 }
 
@@ -320,6 +608,67 @@ SCIP_RETCODE SCIPlpiLoadColLP(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE addConstraintByCol(
+        SCIP_LPI*             lpi,
+        int                   index,
+        int                   ncols,
+        char*                 colname,
+        const SCIP_Real       obj,
+        const SCIP_Real       lb,
+        const SCIP_Real       ub
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->constraints != NULL);
+    assert(lpi->bounds != NULL);
+    int n = 0;
+    // 添加小于等于条件
+    if (!SCIPlpiIsInfinity(lpi, -lb))
+    {
+	    // 添加 b 向量
+        lpi->bounds = (SCIP_Real*)realloc(lpi->bounds, sizeof(SCIP_Real) * (++lpi->nconstraints));
+        lpi->bounds[lpi->nconstraints - 1] = -lb;
+        // 添加 A 矩阵
+        lpi->constraints = (SCIP_Real**)realloc(lpi->constraints, sizeof(SCIP_Real*) * lpi->nconstraints); // 新增一行，用于保存新的变量边界。
+        lpi->constraints[lpi->nconstraints - 1] = (SCIP_Real*)malloc(sizeof(SCIP_Real) * lpi->n);
+        memset(lpi->constraints[lpi->nconstraints - 1], 0, lpi->n);
+        lpi->constraints[lpi->nconstraints - 1][index] = -obj;
+    }
+    // 添加大于等于条件
+    if (!SCIPlpiIsInfinity(lpi, ub))
+    {
+        // 添加 b 向量
+        lpi->bounds = (SCIP_Real*)realloc(lpi->bounds, sizeof(SCIP_Real) * (++lpi->nconstraints));
+        lpi->bounds[lpi->nconstraints - 1] = ub;
+        // 添加 A 矩阵
+        lpi->constraints = (SCIP_Real**)realloc(lpi->constraints, sizeof(SCIP_Real*) * lpi->nconstraints); // 新增一行，用于保存新的变量边界。
+        lpi->constraints[lpi->nconstraints - 1] = (SCIP_Real*)malloc(sizeof(SCIP_Real) * lpi->n);
+        memset(lpi->constraints[lpi->nconstraints - 1], 0, lpi->n);
+        lpi->constraints[lpi->nconstraints - 1][index] = obj;
+    }
+    
+	/*
+    if (!SCIPlpiIsInfinity(lpi, -ub))
+    { // 添加小于等于条件
+        int old_size = lpi->nconstraints;
+        resizeConstraints(lpi, lpi->nconstraints + ncols);
+        for (int i = 0; i < ncols; i++)
+        {
+            lpi->constraints[old_size + i] = (i == index) ? ub : 0;
+        }
+    }
+    if (!SCIPlpiIsInfinity(lpi, lb))
+    {
+        int old_size = lpi->nconstraints;
+        resizeConstraints(lpi, lpi->nconstraints + ncols);
+        for (int i = 0; i < ncols; i++)
+        {
+            lpi->constraints[old_size + i] = (i == index) ? -lb : 0;
+        }
+    }*/
+    return SCIP_OKAY;
+}
+
 /** adds columns to the LP *//* variables */
 SCIP_RETCODE SCIPlpiAddCols(
         SCIP_LPI*             lpi,                /**< LP interface structure */
@@ -335,7 +684,7 @@ SCIP_RETCODE SCIPlpiAddCols(
 )
 {  /*lint --e{715}*/
     assert( lpi != NULL );
-    assert( lpi->ncols >= 0 );
+    assert( lpi->n >= 0 );
     assert(obj != NULL);
     assert(lb != NULL);
     assert(ub != NULL);
@@ -346,13 +695,13 @@ SCIP_RETCODE SCIPlpiAddCols(
     assert(ncols >= 0);
 
 #ifndef NDEBUG
-    {
-        int j;
-        for( j = 0; j < nnonz; j++ )
+    if (nnonz > 0) {
+        int nrows = lpi->n;
+        for (int j = 0; j < nnonz; ++j)
         {
-            assert( val[j] != 0.0 );
-            /* perform check that no new rows are added - this is forbidden */
-            assert( 0 <= ind[j] && ind[j] < lpi->nrows );
+            assert(0 <= ind[j] && ind[j] < nrows);
+            assert(val[j] != 0.0);
+            SCIPdebugMessage("beg[i], ind[i], val[i]: (%d, %d, %f)\n", beg[j], ind[j], val[j]);
         }
     }
 #endif
@@ -360,24 +709,59 @@ SCIP_RETCODE SCIPlpiAddCols(
      * TODO:
      * 1. 获取现在的c向量和n值；
      * 2. 如果某个向量索引已存在，则替换；不存在，则新增。
+     * 3. 第1条和第2条的单元测试。
      */
-    double* c = lpi->scsdata->c;
-    int n = lpi->n;
-    int start, last;
+    /** int start, last; */
+    /**
     for (int i = 0; i < ncols; ++i) {
         if (nnonz > 0) {
             start = beg[i];
             last = (i == ncols - 1 ? nnonz : beg[i + 1]);
         }
-        if (ncols > n) {
+        if (ncols > lpi->n) {
             // 当前索引超出向量尺寸，应当扩容。
-            n = ncols;
-            c = realloc(c, sizeof(double) * n);
+            lpi->n = ncols;
+            lpi->scsdata->c = realloc(lpi->scsdata->c, sizeof(double) * lpi->n);
         }
-        c[i] = obj[i];
-        SCIPdebugMessage("c[%d]: %f\n", i, obj[i]);
+        lpi->scsdata->c[i] = obj[i];
     }
-    lpi->scsdata->c = c;
+    lpi->scsdata->P = ConstructPMatrix(lpi->n);
+    for (int i = 0; i < ncols; ++i)
+    {
+        SCIPdebugMessage("c[%d]: %s, obj: %f, [%f, %f]\n", i, colnames[i], lpi->scsdata->c[i], lb[i], ub[i]);
+        addConstraintByCol(lpi, i, ncols, colnames[i], obj[i], lb[i], ub[i]);
+    }
+    /**
+     * TODO:
+     * 1. 接收变量边界。
+     * 2. 第1条的单元测试。
+     *
+#ifdef SCIP_DEBUG
+    SCIPdebugMessage("Columns added:\n");
+    for (int i = 0; i < lpi->nconstraints; i++)
+    {
+        SCIPdebugMessage("Cons[%d]:\n", i);
+        for (int j = 0; j < lpi->n; j++)
+        {
+            SCIPdebugMessage(" %6.2f", lpi->constraints[i][j]);
+        }
+        SCIPdebugMessage(" %6.2f", lpi->bounds[i]);
+        SCIPdebugMessage("\n");
+    }
+#endif*/
+    int oldncols = lpi->columns->ncols;
+    resizeColumns(lpi, lpi->columns->ncols + ncols);
+    for (int i = 0; i < ncols; i++)
+    {
+        initColumn(lpi, oldncols + i);
+        setColObjReal(lpi, oldncols + i, obj[i]);
+        setColLowerBoundReal(lpi, oldncols + i, lb[i]);
+        setColUpperBoundReal(lpi, oldncols + i, ub[i]);
+        setColName(lpi, oldncols + i, colnames[i]);
+    }
+#ifdef SCIP_DEBUG
+    debugPrintAllColumns(lpi);
+#endif
     return SCIP_OKAY;
 }
 
@@ -428,22 +812,72 @@ SCIP_RETCODE SCIPlpiDelColset(
     return SCIP_OKAY;
 }
 
+
+/**
+ * 添加约束条件，按SCIP提供的行。
+ *
+ */
+SCIP_RETCODE addConstraintsByRow(
+    SCIP_LPI* lpi,
+    const int             row_index,
+    const SCIP_Real lhs,
+    const SCIP_Real rhs,
+    const int* beg,
+    const int* ind,
+    const double* val
+)
+{
+    SCIPdebugMessage("calling addConstraintsByRow()\n");
+    assert(lpi != NULL);
+    assert(lpi->constraints != NULL);
+    assert(lpi->bounds != NULL);
+    if (!SCIPlpiIsInfinity(lpi, -lhs))
+    {
+        lpi->constraints = (SCIP_Real**)realloc(lpi->constraints, sizeof(SCIP_Real*) * (++lpi->nconstraints)); // 新增一行，用于保存新的变量边界。
+        lpi->constraints[lpi->nconstraints - 1] = (SCIP_Real*)malloc(sizeof(SCIP_Real) * lpi->n);
+        lpi->bounds = (SCIP_Real*)realloc(lpi->bounds, sizeof(SCIP_Real) * lpi->nconstraints);
+        lpi->bounds[lpi->nconstraints - 1] = -lhs;
+        for (int j = beg[row_index]; j < beg[row_index] + lpi->n; ++j)
+        {
+            lpi->constraints[lpi->nconstraints - 1][j - beg[row_index]] = -val[j];
+        }
+    }
+    if (!SCIPlpiIsInfinity(lpi, rhs))
+    {
+        lpi->constraints = (SCIP_Real**)realloc(lpi->constraints, sizeof(SCIP_Real*) * (++lpi->nconstraints)); // 新增一行，用于保存新的变量边界。
+        lpi->constraints[lpi->nconstraints - 1] = (SCIP_Real*)malloc(sizeof(SCIP_Real) * lpi->n);
+        lpi->bounds = (SCIP_Real*)realloc(lpi->bounds, sizeof(SCIP_Real) * lpi->nconstraints);
+        lpi->bounds[lpi->nconstraints - 1] = rhs;
+        for (int j = beg[row_index]; j < beg[row_index] + lpi->n; ++j)
+        {
+            lpi->constraints[lpi->nconstraints - 1][j - beg[row_index]] = val[j];
+        }
+    }
+#ifdef SCIP_DEBUG
+    for (int i = 0; i < lpi->n; ++i)
+    {
+        //SCIPdebugMessage("lpi->constraints[%d]: %f\n", row_index * lpi->n + i, lpi->constraints[row_index * lpi->n + i]);
+    }
+#endif
+    return SCIP_OKAY;
+}
+
 /** adds rows to the LP *//* constraints */
 SCIP_RETCODE SCIPlpiAddRows(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int                   nrows,              /**< number of rows to be added */
-        const SCIP_Real*      lhs,                /**< left hand sides of new rows */
-        const SCIP_Real*      rhs,                /**< right hand sides of new rows */
-        char**                rownames,           /**< row names, or NULL */
-        int                   nnonz,              /**< number of nonzero elements to be added to the constraint matrix */
-        const int*            beg,                /**< start index of each row in ind- and val-array, or NULL if nnonz == 0 */
-        const int*            ind,                /**< column indices of constraint matrix entries, or NULL if nnonz == 0 */
-        const SCIP_Real*      val                 /**< values of constraint matrix entries, or NULL if nnonz == 0 */
+    SCIP_LPI* lpi,                /**< LP interface structure */
+    int                   nrows,              /**< number of rows to be added */
+    const SCIP_Real* lhs,                /**< left hand sides of new rows */
+    const SCIP_Real* rhs,                /**< right hand sides of new rows */
+    char** rownames,           /**< row names, or NULL */
+    int                   nnonz,              /**< number of nonzero elements to be added to the constraint matrix */
+    const int* beg,                /**< start index of each row in ind- and val-array, or NULL if nnonz == 0 */
+    const int* ind,                /**< column indices of constraint matrix entries, or NULL if nnonz == 0 */
+    const SCIP_Real* val                 /**< values of constraint matrix entries, or NULL if nnonz == 0 */
 )
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiAddRows()\n");
-    assert( lpi != NULL );
-    assert( lpi->nrows >= 0 );
+    assert(lpi != NULL);
+    assert(lpi->n >= 0);
     assert(lhs != NULL);
     assert(rhs != NULL);
     assert(nnonz == 0 || beg != NULL);
@@ -456,14 +890,41 @@ SCIP_RETCODE SCIPlpiAddRows(
         int j;
         for (j = 0; j < nnonz; ++j)
         {
-            assert( val[j] != 0.0 );
-            assert( 0 <= ind[j] && ind[j] < lpi->ncols );
+            assert(val[j] != 0.0);
+            assert(0 <= ind[j] && ind[j] < lpi->n);
         }
     }
 #endif
-
-    lpi->nrows += nrows;
-
+    lpi->m = nrows;
+    if (!lpi->constraints)
+    {
+        lpi->constraints = (double*)calloc(1, sizeof(double) * lpi->n * lpi->m);
+    }
+    for (int i = 0; i < nrows; ++i)
+    {
+        SCIPdebugMessage("r[%d]: %s,", i, rownames[i]);
+        SCIPdebugMessage("%f <= ", lhs[i]);
+        for (int j = beg[i]; j < beg[i] + lpi->n; ++j)
+        {
+            SCIPdebugMessage(" %f ", val[j]);
+            //lpi->constraints[j] = val[j];
+        }
+        SCIPdebugMessage(" <= %f\n", rhs[i]);
+        addConstraintsByRow(lpi, i, lhs[i], rhs[i], beg, ind, val);
+    }
+#ifdef SCIP_DEBUG
+    SCIPdebugMessage("Rows added:\n");
+    for (int i = 0; i < lpi->nconstraints; i++)
+    {
+        SCIPdebugMessage("Cons[%d]:\n", i);
+        for (int j = 0; j < lpi->n; j++)
+        {
+            SCIPdebugMessage(" %6.2f", lpi->constraints[i][j]);
+        }
+        SCIPdebugMessage(" %6.2f", lpi->bounds[i]);
+        SCIPdebugMessage("\n");
+    }
+#endif
     return SCIP_OKAY;
 }
 
@@ -660,7 +1121,7 @@ SCIP_RETCODE SCIPlpiGetNRows(
     assert( nrows != NULL );
     assert( lpi->nrows >= 0 );
 
-    *nrows = lpi->nrows;
+    *nrows = lpi->m;
 
     return SCIP_OKAY;
 }
@@ -675,7 +1136,7 @@ SCIP_RETCODE SCIPlpiGetNCols(
     assert( ncols != NULL );
     assert( lpi->scsdata != NULL );
 
-    *ncols = lpi->scsdata->n;
+    *ncols = lpi->n;
 
     return SCIP_OKAY;
 }
