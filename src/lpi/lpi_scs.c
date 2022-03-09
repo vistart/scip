@@ -646,8 +646,8 @@ SCIP_RETCODE addConstraintByCol(
         memset(lpi->constraints[lpi->nconstraints - 1], 0, lpi->n);
         lpi->constraints[lpi->nconstraints - 1][index] = obj;
     }
-    
-	/*
+
+    /**
     if (!SCIPlpiIsInfinity(lpi, -ub))
     { // 添加小于等于条件
         int old_size = lpi->nconstraints;
@@ -790,15 +790,14 @@ SCIP_RETCODE SCIPlpiDelColset(
 )
 {  /*lint --e{715}*/
     int cnt = 0;
-    int j;
 
     assert(lpi != NULL);
     assert(dstat != NULL);
     assert(lpi->ncols >= 0);
 
-    for (j = 0; j < lpi->ncols; ++j)
+    for (int j = 0; j < lpi->ncols; ++j)
     {
-        if ( dstat[j] )
+        if (dstat[j])
         {
             ++cnt;
             dstat[j] = -1;
@@ -961,7 +960,7 @@ SCIP_RETCODE SCIPlpiDelRowset(
 
     for (i = 0; i < lpi->nrows; ++i)
     {
-        if ( dstat[i] )
+        if (dstat[i])
         {
             ++cnt;
             dstat[i] = -1;
@@ -1007,12 +1006,12 @@ SCIP_RETCODE SCIPlpiChgBounds(
 
     for (int j = 0; j < ncols; ++j)
     {
-        if ( SCIPlpiIsInfinity(lpi, lb[j]) )
+        if (SCIPlpiIsInfinity(lpi, lb[j]))
         {
             SCIPerrorMessage("LP Error: fixing lower bound for variable %d to infinity.\n", ind[j]);
             return SCIP_LPERROR;
         }
-        if ( SCIPlpiIsInfinity(lpi, -ub[j]) )
+        if (SCIPlpiIsInfinity(lpi, -ub[j]))
         {
             SCIPerrorMessage("LP Error: fixing upper bound for variable %d to -infinity.\n", ind[j]);
             return SCIP_LPERROR;
@@ -1165,15 +1164,15 @@ SCIP_RETCODE SCIPlpiGetNNonz(
  *  either nnonz, beg, ind, and val have to be NULL, or all of them have to be non-NULL.
  */
 SCIP_RETCODE SCIPlpiGetCols(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int                   firstcol,           /**< first column to get from LP */
-        int                   lastcol,            /**< last column to get from LP */
-        SCIP_Real*            lb,                 /**< buffer to store the lower bound vector, or NULL */
-        SCIP_Real*            ub,                 /**< buffer to store the upper bound vector, or NULL */
-        int*                  nnonz,              /**< pointer to store the number of nonzero elements returned, or NULL */
-        int*                  beg,                /**< buffer to store start index of each column in ind- and val-array, or NULL */
-        int*                  ind,                /**< buffer to store row indices of constraint matrix entries, or NULL */
-        SCIP_Real*            val                 /**< buffer to store values of constraint matrix entries, or NULL */
+        SCIP_LPI*             lpi,       /**< LP interface structure */
+        int                   firstcol,  /**< first column to get from LP */
+        int                   lastcol,   /**< last column to get from LP */
+        SCIP_Real*            lb,        /**< buffer to store the lower bound vector, or NULL */
+        SCIP_Real*            ub,        /**< buffer to store the upper bound vector, or NULL */
+        int*                  nnonz,     /**< pointer to store the number of nonzero elements returned, or NULL */
+        int*                  beg,    /**< buffer to store start index of each column in ind- and val-array, or NULL */
+        int*                  ind,    /**< buffer to store row indices of constraint matrix entries, or NULL */
+        SCIP_Real*            val     /**< buffer to store values of constraint matrix entries, or NULL */
 )
 {  /*lint --e{715}*/
     errorMessage();
@@ -1185,15 +1184,15 @@ SCIP_RETCODE SCIPlpiGetCols(
  *  either nnonz, beg, ind, and val have to be NULL, or all of them have to be non-NULL.
  */
 SCIP_RETCODE SCIPlpiGetRows(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int                   firstrow,           /**< first row to get from LP */
-        int                   lastrow,            /**< last row to get from LP */
-        SCIP_Real*            lhs,                /**< buffer to store left hand side vector, or NULL */
-        SCIP_Real*            rhs,                /**< buffer to store right hand side vector, or NULL */
-        int*                  nnonz,              /**< pointer to store the number of nonzero elements returned, or NULL */
-        int*                  beg,                /**< buffer to store start index of each row in ind- and val-array, or NULL */
-        int*                  ind,                /**< buffer to store column indices of constraint matrix entries, or NULL */
-        SCIP_Real*            val                 /**< buffer to store values of constraint matrix entries, or NULL */
+        SCIP_LPI*             lpi,      /**< LP interface structure */
+        int                   firstrow, /**< first row to get from LP */
+        int                   lastrow,  /**< last row to get from LP */
+        SCIP_Real*            lhs,      /**< buffer to store left hand side vector, or NULL */
+        SCIP_Real*            rhs,      /**< buffer to store right hand side vector, or NULL */
+        int*                  nnonz,    /**< pointer to store the number of nonzero elements returned, or NULL */
+        int*                  beg,      /**< buffer to store start index of each row in ind- and val-array, or NULL */
+        int*                  ind,      /**< buffer to store column indices of constraint matrix entries, or NULL */
+        SCIP_Real*            val       /**< buffer to store values of constraint matrix entries, or NULL */
 )
 {  /*lint --e{715}*/
     errorMessage();
@@ -1205,10 +1204,13 @@ SCIP_RETCODE SCIPlpiGetColNames(
         SCIP_LPI*             lpi,                /**< LP interface structure */
         int                   firstcol,           /**< first column to get name from LP */
         int                   lastcol,            /**< last column to get name from LP */
-        char**                colnames,           /**< pointers to column names (of size at least lastcol-firstcol+1) or NULL if namestoragesize is zero */
+        char**                colnames,           /**< pointers to column names (of size at least lastcol-firstcol+1)
+                                                  or NULL if namestoragesize is zero */
         char*                 namestorage,        /**< storage for col names or NULL if namestoragesize is zero */
-        int                   namestoragesize,    /**< size of namestorage (if 0, storageleft returns the storage needed) */
-        int*                  storageleft         /**< amount of storage left (if < 0 the namestorage was not big enough) or NULL if namestoragesize is zero */
+        int                   namestoragesize,    /**< size of namestorage
+                                                  (if 0, storageleft returns the storage needed) */
+        int*                  storageleft      /**< amount of storage left (if < 0 the namestorage was not big enough)
+                                               or NULL if namestoragesize is zero */
 )
 { /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1225,10 +1227,13 @@ SCIP_RETCODE SCIPlpiGetRowNames(
         SCIP_LPI*             lpi,                /**< LP interface structure */
         int                   firstrow,           /**< first row to get name from LP */
         int                   lastrow,            /**< last row to get name from LP */
-        char**                rownames,           /**< pointers to row names (of size at least lastrow-firstrow+1) or NULL if namestoragesize is zero */
+        char**                rownames,           /**< pointers to row names (of size at least lastrow-firstrow+1)
+                                                  or NULL if namestoragesize is zero */
         char*                 namestorage,        /**< storage for row names or NULL if namestoragesize is zero */
-        int                   namestoragesize,    /**< size of namestorage (if 0, -storageleft returns the storage needed) */
-        int*                  storageleft         /**< amount of storage left (if < 0 the namestorage was not big enough) or NULL if namestoragesize is zero */
+        int                   namestoragesize,    /**< size of namestorage
+                                                  (if 0, -storageleft returns the storage needed) */
+        int*                  storageleft      /**< amount of storage left (if < 0 the namestorage was not big enough)
+                                               or NULL if namestoragesize is zero */
 )
 { /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1382,7 +1387,8 @@ SCIP_RETCODE SCIPlpiStrongbranchFrac(
                                               *   otherwise, it can only be used as an estimate value */
         SCIP_Bool*            upvalid,            /**< stores whether the returned up value is a valid dual bound;
                                               *   otherwise, it can only be used as an estimate value */
-        int*                  iter                /**< stores total number of strong branching iterations, or -1; may be NULL */
+        int*                  iter                /**< stores total number of strong branching iterations, or -1;
+                                                  may be NULL */
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1407,7 +1413,8 @@ SCIP_RETCODE SCIPlpiStrongbranchesFrac(
                                               *   otherwise, they can only be used as an estimate values */
         SCIP_Bool*            upvalid,            /**< stores whether the returned up values are a valid dual bounds;
                                               *   otherwise, they can only be used as an estimate values */
-        int*                  iter                /**< stores total number of strong branching iterations, or -1; may be NULL */
+        int*                  iter                /**< stores total number of strong branching iterations, or -1;
+                                                  may be NULL */
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1433,7 +1440,8 @@ SCIP_RETCODE SCIPlpiStrongbranchInt(
                                               *   otherwise, it can only be used as an estimate value */
         SCIP_Bool*            upvalid,            /**< stores whether the returned up value is a valid dual bound;
                                               *   otherwise, it can only be used as an estimate value */
-        int*                  iter                /**< stores total number of strong branching iterations, or -1; may be NULL */
+        int*                  iter                /**< stores total number of strong branching iterations, or -1;
+                                                  may be NULL */
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1458,7 +1466,8 @@ SCIP_RETCODE SCIPlpiStrongbranchesInt(
                                               *   otherwise, they can only be used as an estimate values */
         SCIP_Bool*            upvalid,            /**< stores whether the returned up values are a valid dual bounds;
                                               *   otherwise, they can only be used as an estimate values */
-        int*                  iter                /**< stores total number of strong branching iterations, or -1; may be NULL */
+        int*                  iter                /**< stores total number of strong branching iterations, or -1;
+                                                  may be NULL */
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1498,8 +1507,8 @@ SCIP_Bool SCIPlpiWasSolved(
  *  The feasibility information is with respect to the last solving call and it is only relevant if SCIPlpiWasSolved()
  *  returns true. If the LP is changed, this information might be invalidated.
  *
- *  Note that @a primalfeasible and @a dualfeasible should only return true if the solver has proved the respective LP to
- *  be feasible. Thus, the return values should be equal to the values of SCIPlpiIsPrimalFeasible() and
+ *  Note that @a primalfeasible and @a dualfeasible should only return true if the solver has proved the respective LP
+ *  to be feasible. Thus, the return values should be equal to the values of SCIPlpiIsPrimalFeasible() and
  *  SCIPlpiIsDualFeasible(), respectively. Note that if feasibility cannot be proved, they should return false (even if
  *  the problem might actually be feasible).
  */
@@ -1759,8 +1768,8 @@ SCIP_RETCODE SCIPlpiGetDualfarkas(
 
 /** gets the number of LP iterations of the last solve call */
 SCIP_RETCODE SCIPlpiGetIterations(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int*                  iterations          /**< pointer to store the number of iterations of the last solve call */
+        SCIP_LPI*             lpi,             /**< LP interface structure */
+        int*                  iterations       /**< pointer to store the number of iterations of the last solve call */
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1828,8 +1837,8 @@ SCIP_RETCODE SCIPlpiSetBase(
 
 /** returns the indices of the basic columns and rows; basic column n gives value n, basic row m gives value -1-m */
 SCIP_RETCODE SCIPlpiGetBasisInd(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int*                  bind                /**< pointer to store basis indices ready to keep number of rows entries */
+        SCIP_LPI*             lpi,          /**< LP interface structure */
+        int*                  bind          /**< pointer to store basis indices ready to keep number of rows entries */
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
@@ -1866,15 +1875,15 @@ SCIP_RETCODE SCIPlpiGetBInvRow(
  *        see also the explanation in lpi.h.
  */
 SCIP_RETCODE SCIPlpiGetBInvCol(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int                   c,                  /**< column number of B^-1; this is NOT the number of the column in the LP;
-                                              *   you have to call SCIPlpiGetBasisInd() to get the array which links the
-                                              *   B^-1 column numbers to the row and column numbers of the LP!
-                                              *   c must be between 0 and nrows-1, since the basis has the size
-                                              *   nrows * nrows */
-        SCIP_Real*            coef,               /**< pointer to store the coefficients of the column */
-        int*                  inds,               /**< array to store the non-zero indices, or NULL */
-        int*                  ninds               /**< pointer to store the number of non-zero indices, or NULL
+        SCIP_LPI*             lpi,          /**< LP interface structure */
+        int                   c,            /**< column number of B^-1; this is NOT the number of the column in the LP;
+                                              *  you have to call SCIPlpiGetBasisInd() to get the array which links the
+                                              *  B^-1 column numbers to the row and column numbers of the LP!
+                                              *  c must be between 0 and nrows-1, since the basis has the size
+                                              *  nrows * nrows */
+        SCIP_Real*            coef,         /**< pointer to store the coefficients of the column */
+        int*                  inds,         /**< array to store the non-zero indices, or NULL */
+        int*                  ninds         /**< pointer to store the number of non-zero indices, or NULL
                                               *   (-1: if we do not store sparsity information) */
 )
 {  /*lint --e{715}*/
@@ -1886,17 +1895,17 @@ SCIP_RETCODE SCIPlpiGetBInvCol(
 
 /** get row of inverse basis matrix times constraint matrix B^-1 * A
  *
- *  @note The LP interface defines slack variables to have coefficient +1. This means that if, internally, the LP solver
- *        uses a -1 coefficient, then rows associated with slacks variables whose coefficient is -1, should be negated;
- *        see also the explanation in lpi.h.
+ *  @note The LP interface defines slack variables to have coefficient +1. This means that if, internally, the LP
+ *  solver uses a -1 coefficient, then rows associated with slacks variables whose coefficient is -1, should be
+ *  negated; see also the explanation in lpi.h.
  */
 SCIP_RETCODE SCIPlpiGetBInvARow(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int                   r,                  /**< row number */
-        const SCIP_Real*      binvrow,            /**< row in (A_B)^-1 from prior call to SCIPlpiGetBInvRow(), or NULL */
-        SCIP_Real*            coef,               /**< vector to return coefficients of the row */
-        int*                  inds,               /**< array to store the non-zero indices, or NULL */
-        int*                  ninds               /**< pointer to store the number of non-zero indices, or NULL
+        SCIP_LPI*             lpi,            /**< LP interface structure */
+        int                   r,              /**< row number */
+        const SCIP_Real*      binvrow,        /**< row in (A_B)^-1 from prior call to SCIPlpiGetBInvRow(), or NULL */
+        SCIP_Real*            coef,           /**< vector to return coefficients of the row */
+        int*                  inds,           /**< array to store the non-zero indices, or NULL */
+        int*                  ninds           /**< pointer to store the number of non-zero indices, or NULL
                                               *   (-1: if we do not store sparsity information) */
 )
 {  /*lint --e{715}*/
@@ -1908,9 +1917,9 @@ SCIP_RETCODE SCIPlpiGetBInvARow(
 
 /** get column of inverse basis matrix times constraint matrix B^-1 * A
  *
- *  @note The LP interface defines slack variables to have coefficient +1. This means that if, internally, the LP solver
- *        uses a -1 coefficient, then rows associated with slacks variables whose coefficient is -1, should be negated;
- *        see also the explanation in lpi.h.
+ *  @note The LP interface defines slack variables to have coefficient +1. This means that if, internally, the LP
+ *  solver uses a -1 coefficient, then rows associated with slacks variables whose coefficient is -1, should be
+ *  negated; see also the explanation in lpi.h.
  */
 SCIP_RETCODE SCIPlpiGetBInvACol(
         SCIP_LPI*             lpi,                /**< LP interface structure */
@@ -2203,8 +2212,8 @@ SCIP_RETCODE SCIPlpiSetRealpar(
 
 /** interrupts the currently ongoing lp solve or disables the interrupt */
 SCIP_RETCODE SCIPlpiInterrupt(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        SCIP_Bool             interrupt           /**< TRUE if interrupt should be set, FALSE if it should be disabled */
+        SCIP_LPI*             lpi,            /**< LP interface structure */
+        SCIP_Bool             interrupt       /**< TRUE if interrupt should be set, FALSE if it should be disabled */
 )
 {
     /*lint --e{715}*/
