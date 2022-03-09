@@ -147,7 +147,7 @@ const SCIP_Real getColLowerBoundReal(
     return lpi->columns->columns_ptr[col]->lb;
 }
 
-SCIP_RETCODE setColLowerBoundReal(
+SCIP_RETCODE set_column_lower_bound_real(
     SCIP_LPI* lpi,
     int col,
     SCIP_Real val
@@ -175,7 +175,7 @@ const SCIP_Real getColUpperBoundReal(
     return lpi->columns->columns_ptr[col]->ub;
 }
 
-SCIP_RETCODE setColUpperBoundReal(
+SCIP_RETCODE set_column_upper_bound_real(
     SCIP_LPI* lpi,
     int col,
     SCIP_Real val
@@ -203,7 +203,7 @@ const SCIP_Real getColObjReal(
     return lpi->columns->columns_ptr[col]->obj;
 }
 
-SCIP_RETCODE setColObjReal(
+SCIP_RETCODE set_column_obj_real(
     SCIP_LPI* lpi,
     int col,
     SCIP_Real val
@@ -218,7 +218,7 @@ SCIP_RETCODE setColObjReal(
     return SCIP_OKAY;
 }
 
-const char* getColName(
+const char* get_column_name(
     SCIP_LPI* lpi,
     int col
 )
@@ -231,7 +231,7 @@ const char* getColName(
     return lpi->columns->columns_ptr[col]->name;
 }
 
-SCIP_RETCODE setColName(
+SCIP_RETCODE set_column_name(
     SCIP_LPI* lpi,
     int col,
     char* val
@@ -246,7 +246,7 @@ SCIP_RETCODE setColName(
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE debugPrintColumn(
+SCIP_RETCODE debug_print_column(
     SCIP_LPI* lpi,
     int col
 )
@@ -254,11 +254,11 @@ SCIP_RETCODE debugPrintColumn(
     assert(lpi != NULL);
     assert(lpi->columns != NULL);
     assert(lpi->columns->columns_ptr != NULL);
-    SCIPdebugMessage("Col[%d]: %s, (%8.2f, %8.2f)\n", col, getColName(lpi, col), getColLowerBoundReal(lpi, col), getColUpperBoundReal(lpi ,col));
+    SCIPdebugMessage("Col[%d]: %s, (%8.2f, %8.2f)\n", col, get_column_name(lpi, col), getColLowerBoundReal(lpi, col), getColUpperBoundReal(lpi ,col));
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE debugPrintAllColumns(
+SCIP_RETCODE debug_print_all_columns(
     SCIP_LPI* lpi
 )
 {
@@ -267,7 +267,7 @@ SCIP_RETCODE debugPrintAllColumns(
     assert(lpi->columns != NULL);
     for (int i = 0; i < lpi->columns->ncols; i++)
     {
-        debugPrintColumn(lpi, i);
+        debug_print_column(lpi, i);
     }
     return SCIP_OKAY;
 }
@@ -277,7 +277,7 @@ SCIP_RETCODE debugPrintAllColumns(
  * 注意：释放操作后指针指向 NULL，并不会缩小columns_ptr的尺寸，也不会改变其它任何columns_ptr指针的值，仅为方便清空列（clearColumns）而设。
  * 因此，如果要删除某个列，则应当在删除后主动挪动后续指针值，并修改列总数（ncols）。
  */
-SCIP_RETCODE freeColumn(
+SCIP_RETCODE free_column(
     SCIP_LPI* lpi,
     int col
 )
@@ -292,7 +292,7 @@ SCIP_RETCODE freeColumn(
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE resizeColumns(
+SCIP_RETCODE resize_columns(
     SCIP_LPI* lpi,
     int newsize
 )
@@ -311,7 +311,7 @@ SCIP_RETCODE resizeColumns(
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE initColumn(
+SCIP_RETCODE init_column(
     SCIP_LPI* lpi,
     int col
 )
@@ -329,7 +329,7 @@ SCIP_RETCODE initColumn(
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE initColumns(
+SCIP_RETCODE init_columns(
     SCIP_LPI* lpi
 )
 {
@@ -345,7 +345,7 @@ SCIP_RETCODE initColumns(
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE clearColumns(
+SCIP_RETCODE clear_columns(
     SCIP_LPI* lpi
 )
 {
@@ -356,9 +356,9 @@ SCIP_RETCODE clearColumns(
     }
     for (int i = 0; i < lpi->columns->ncols; i++)
     {
-        freeColumn(lpi, i);
+        free_column(lpi, i);
     }
-    initColumns(lpi);
+    init_columns(lpi);
     return SCIP_OKAY;
 }
 
@@ -380,7 +380,7 @@ const char* SCIPlpiGetSolverDesc(
         void
 )
 {
-    return "Linear Programming Solver using Splitting Conic Solver Developed By Zhao Vistart (github.com/vistart/scip).";
+    return "Linear Programming Solver using Splitting Conic Solver Developed By Zhao Vistart.";
 }
 
 /** gets pointer for LP solver - use only with great care */
@@ -395,7 +395,8 @@ void* SCIPlpiGetSolverPointer(
 SCIP_RETCODE SCIPlpiSetIntegralityInformation(
         SCIP_LPI*             lpi,                /**< pointer to an LP interface structure */
         int                   ncols,              /**< length of integrality array */
-        int*                  intInfo             /**< integrality array (0: continuous, 1: integer). May be NULL iff ncols is 0.  */
+        int*                  intInfo             /**< integrality array (0: continuous, 1: integer).
+                                                  May be NULL iff ncols is 0.  */
 )
 { /*lint --e{715}*/
     SCIPerrorMessage("SCIPlpiSetIntegralityInformation() has not been implemented yet.\n");
@@ -494,7 +495,7 @@ SCIP_RETCODE SCIPlpiCreate(
     (*lpi)->constraints = (SCIP_Real**)malloc(0);
     (*lpi)->bounds = (SCIP_Real*)malloc(0);
     //(*lpi)->nupperbounds = 0;
-    initColumns(*lpi);
+    init_columns(*lpi);
     return SCIP_OKAY;
 }
 
@@ -528,7 +529,7 @@ SCIP_RETCODE SCIPlpiFree(
         SCIP_LPI**            lpi                 /**< pointer to an LP interface structure */
 )
 {  /*lint --e{715}*/
-    assert( lpi != NULL );
+    assert(lpi != NULL);
     SCIPdebugMessage("SCIPlpiFree()\n");
 
     /* Free allocated memory */
@@ -581,16 +582,15 @@ SCIP_RETCODE SCIPlpiLoadColLP(
 
 #ifndef NDEBUG
     {
-        int j;
         SCIPdebugMessage("SCIPlpiLoadColLP:\n");
-        for( j = 0; j < nnonz; j++ ) {
+        for(int j = 0; j < nnonz; j++) {
             assert(val[j] != 0);
             printf("val[%d]: %f\n", j, val[j]);
         }
     }
 #endif
 
-    assert( lpi != NULL );
+    assert(lpi != NULL);
     assert(lhs != NULL);
     assert(rhs != NULL);
     assert(obj != NULL);
@@ -671,16 +671,16 @@ SCIP_RETCODE addConstraintByCol(
 
 /** adds columns to the LP *//* variables */
 SCIP_RETCODE SCIPlpiAddCols(
-        SCIP_LPI*             lpi,                /**< LP interface structure */
-        int                   ncols,              /**< number of columns to be added */
-        const SCIP_Real*      obj,                /**< objective function values of new columns */
-        const SCIP_Real*      lb,                 /**< lower bounds of new columns */
-        const SCIP_Real*      ub,                 /**< upper bounds of new columns */
-        char**                colnames,           /**< column names, or NULL */
-        int                   nnonz,              /**< number of nonzero elements to be added to the constraint matrix */
-        const int*            beg,                /**< start index of each column in ind- and val-array, or NULL if nnonz == 0 */
-        const int*            ind,                /**< row indices of constraint matrix entries, or NULL if nnonz == 0 */
-        const SCIP_Real*      val                 /**< values of constraint matrix entries, or NULL if nnonz == 0 */
+        SCIP_LPI*             lpi,      /**< LP interface structure */
+        int                   ncols,    /**< number of columns to be added */
+        const SCIP_Real*      obj,      /**< objective function values of new columns */
+        const SCIP_Real*      lb,       /**< lower bounds of new columns */
+        const SCIP_Real*      ub,       /**< upper bounds of new columns */
+        char**                colnames, /**< column names, or NULL */
+        int                   nnonz,    /**< number of nonzero elements to be added to the constraint matrix */
+        const int*            beg,      /**< start index of each column in ind- and val-array, or NULL if nnonz == 0 */
+        const int*            ind,      /**< row indices of constraint matrix entries, or NULL if nnonz == 0 */
+        const SCIP_Real*      val       /**< values of constraint matrix entries, or NULL if nnonz == 0 */
 )
 {  /*lint --e{715}*/
     assert( lpi != NULL );
@@ -750,17 +750,17 @@ SCIP_RETCODE SCIPlpiAddCols(
     }
 #endif*/
     int oldncols = lpi->columns->ncols;
-    resizeColumns(lpi, lpi->columns->ncols + ncols);
+    resize_columns(lpi, lpi->columns->ncols + ncols);
     for (int i = 0; i < ncols; i++)
     {
-        initColumn(lpi, oldncols + i);
-        setColObjReal(lpi, oldncols + i, obj[i]);
-        setColLowerBoundReal(lpi, oldncols + i, lb[i]);
-        setColUpperBoundReal(lpi, oldncols + i, ub[i]);
-        setColName(lpi, oldncols + i, colnames[i]);
+        init_column(lpi, oldncols + i);
+        set_column_obj_real(lpi, oldncols + i, obj[i]);
+        set_column_lower_bound_real(lpi, oldncols + i, lb[i]);
+        set_column_upper_bound_real(lpi, oldncols + i, ub[i]);
+        set_column_name(lpi, oldncols + i, colnames[i]);
     }
 #ifdef SCIP_DEBUG
-    debugPrintAllColumns(lpi);
+    debug_print_all_columns(lpi);
 #endif
     return SCIP_OKAY;
 }
@@ -772,11 +772,11 @@ SCIP_RETCODE SCIPlpiDelCols(
         int                   lastcol             /**< last column to be deleted */
 )
 {  /*lint --e{715}*/
-    assert( lpi != NULL );
-    assert( lpi->ncols >= 0 );
+    assert(lpi != NULL);
+    assert(lpi->ncols >= 0);
 
     lpi->ncols -= lastcol - firstcol + 1;
-    assert( lpi->ncols >= 0 );
+    assert(lpi->ncols >= 0);
 
     return SCIP_OKAY;
 }
@@ -792,9 +792,9 @@ SCIP_RETCODE SCIPlpiDelColset(
     int cnt = 0;
     int j;
 
-    assert( lpi != NULL );
-    assert( dstat != NULL );
-    assert( lpi->ncols >= 0 );
+    assert(lpi != NULL);
+    assert(dstat != NULL);
+    assert(lpi->ncols >= 0);
 
     for (j = 0; j < lpi->ncols; ++j)
     {
@@ -807,7 +807,7 @@ SCIP_RETCODE SCIPlpiDelColset(
             dstat[j] = cnt;
     }
     lpi->ncols -= cnt;
-    assert( lpi->ncols >= 0 );
+    assert(lpi->ncols >= 0);
 
     return SCIP_OKAY;
 }
@@ -935,11 +935,11 @@ SCIP_RETCODE SCIPlpiDelRows(
         int                   lastrow             /**< last row to be deleted */
 )
 {  /*lint --e{715}*/
-    assert( lpi != NULL );
-    assert( lpi->nrows >= 0 );
+    assert(lpi != NULL);
+    assert(lpi->nrows >= 0);
 
     lpi->nrows -= lastrow - firstrow + 1;
-    assert( lpi->nrows >= 0 );
+    assert(lpi->nrows >= 0);
 
     return SCIP_OKAY;
 }
@@ -955,9 +955,9 @@ SCIP_RETCODE SCIPlpiDelRowset(
     int cnt = 0;
     int i;
 
-    assert( lpi != NULL );
-    assert( dstat != NULL );
-    assert( lpi->nrows >= 0 );
+    assert(lpi != NULL);
+    assert(dstat != NULL);
+    assert(lpi->nrows >= 0);
 
     for (i = 0; i < lpi->nrows; ++i)
     {
@@ -970,7 +970,7 @@ SCIP_RETCODE SCIPlpiDelRowset(
             dstat[i] = cnt;
     }
     lpi->nrows -= cnt;
-    assert( lpi->nrows >= 0 );
+    assert(lpi->nrows >= 0);
 
     return SCIP_OKAY;
 }
@@ -980,9 +980,9 @@ SCIP_RETCODE SCIPlpiClear(
         SCIP_LPI*             lpi                 /**< LP interface structure */
 )
 {  /*lint --e{715}*/
-    assert( lpi != NULL );
-    assert( lpi->nrows >= 0 );
-    assert( lpi->ncols >= 0 );
+    assert(lpi != NULL);
+    assert(lpi->nrows >= 0);
+    assert(lpi->ncols >= 0);
 
     lpi->nrows = 0;
     lpi->ncols = 0;
@@ -999,14 +999,13 @@ SCIP_RETCODE SCIPlpiChgBounds(
         const SCIP_Real*      ub                  /**< values for the new upper bounds or NULL if ncols is zero */
 )
 {  /*lint --e{715}*/
-    int j;
 
     assert(ncols == 0 || (ind != NULL && lb != NULL && ub != NULL));
 
-    if( ncols <= 0 )
+    if(ncols <= 0)
         return SCIP_OKAY;
 
-    for (j = 0; j < ncols; ++j)
+    for (int j = 0; j < ncols; ++j)
     {
         if ( SCIPlpiIsInfinity(lpi, lb[j]) )
         {
@@ -1117,9 +1116,9 @@ SCIP_RETCODE SCIPlpiGetNRows(
         int*                  nrows               /**< pointer to store the number of rows */
 )
 {  /*lint --e{715}*/
-    assert( lpi != NULL );
-    assert( nrows != NULL );
-    assert( lpi->nrows >= 0 );
+    assert(lpi != NULL);
+    assert(nrows != NULL);
+    assert(lpi->nrows >= 0);
 
     *nrows = lpi->m;
 
@@ -1132,9 +1131,9 @@ SCIP_RETCODE SCIPlpiGetNCols(
         int*                  ncols               /**< pointer to store the number of cols */
 )
 {  /*lint --e{715}*/
-    assert( lpi != NULL );
-    assert( ncols != NULL );
-    assert( lpi->scsdata != NULL );
+    assert(lpi != NULL);
+    assert(ncols != NULL);
+    assert(lpi->scsdata != NULL);
 
     *ncols = lpi->n;
 
@@ -1149,9 +1148,9 @@ SCIP_RETCODE SCIPlpiGetNNonz(
 {  /*lint --e{715}*/
     assert(nnonz != NULL);
     assert(lpi != NULL);
-    assert( lpi->scsdata != NULL );
-    assert( lpi->scsdata->A != NULL );
-    assert( lpi->scsdata->A->p != NULL );
+    assert(lpi->scsdata != NULL);
+    assert(lpi->scsdata->A != NULL);
+    assert(lpi->scsdata->A->p != NULL);
     double* p = lpi->scsdata->A->p;
     *nnonz = 0;
     while (p != NULL) {
@@ -1387,10 +1386,10 @@ SCIP_RETCODE SCIPlpiStrongbranchFrac(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    assert( down != NULL );
-    assert( up != NULL );
-    assert( downvalid != NULL );
-    assert( upvalid != NULL );
+    assert(down != NULL);
+    assert(up != NULL);
+    assert(downvalid != NULL);
+    assert(upvalid != NULL);
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -1412,12 +1411,12 @@ SCIP_RETCODE SCIPlpiStrongbranchesFrac(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    assert( cols != NULL );
-    assert( psols != NULL );
-    assert( down != NULL );
-    assert( up != NULL );
-    assert( downvalid != NULL );
-    assert( upvalid != NULL );
+    assert(cols != NULL);
+    assert(psols != NULL);
+    assert(down != NULL);
+    assert(up != NULL);
+    assert(downvalid != NULL);
+    assert(upvalid != NULL);
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -1438,10 +1437,10 @@ SCIP_RETCODE SCIPlpiStrongbranchInt(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    assert( down != NULL );
-    assert( up != NULL );
-    assert( downvalid != NULL );
-    assert( upvalid != NULL );
+    assert(down != NULL);
+    assert(up != NULL);
+    assert(downvalid != NULL);
+    assert(upvalid != NULL);
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -1463,12 +1462,12 @@ SCIP_RETCODE SCIPlpiStrongbranchesInt(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    assert( cols != NULL );
-    assert( psols != NULL );
-    assert( down != NULL );
-    assert( up != NULL );
-    assert( downvalid != NULL );
-    assert( upvalid != NULL );
+    assert(cols != NULL);
+    assert(psols != NULL);
+    assert(down != NULL);
+    assert(up != NULL);
+    assert(downvalid != NULL);
+    assert(upvalid != NULL);
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
