@@ -30,11 +30,12 @@
 
 #define LPINAME          "SCS"                               /**< name of the LPI interface */
 #define LPIINFINITY       1e+20    /**< infinity value */
-
+#define ABS(x) ((x)>0?(x):-(x))
+#define LPIINFINITILYSMALL 1e-10
+#define ISLPIINFINITILYSMALL(x) (ABS(x)<LPIINFINITILYSMALL)
 
 /* globally turn off lint warnings: */
 /*lint --e{715}*/
-
 
 struct SCIP_Column
 {
@@ -254,7 +255,8 @@ SCIP_RETCODE debug_print_column(
     assert(lpi != NULL);
     assert(lpi->columns != NULL);
     assert(lpi->columns->columns_ptr != NULL);
-    SCIPdebugMessage("Col[%d]: %s, (%8.2f, %8.2f)\n", col, get_column_name(lpi, col), getColLowerBoundReal(lpi, col), getColUpperBoundReal(lpi ,col));
+    SCIPdebugMessage("Col[%d]: %s, (%8.2f, %8.2f)\n",
+        col, get_column_name(lpi, col), getColLowerBoundReal(lpi, col), getColUpperBoundReal(lpi ,col));
     return SCIP_OKAY;
 }
 
@@ -464,7 +466,7 @@ SCIP_RETCODE SCIPlpiCreate(
 
     assert(lpi != NULL);
     assert(name != NULL);
-    SCIP_ALLOC( BMSallocMemory(lpi));
+    SCIP_ALLOC(BMSallocMemory(lpi));
     SCIPdebugMessage("Name: %s\n", name);
     (*lpi)->name = name;
     SCIPdebugMessage("ObjSen: %d\n", objsen);
@@ -584,7 +586,7 @@ SCIP_RETCODE SCIPlpiLoadColLP(
     {
         SCIPdebugMessage("SCIPlpiLoadColLP:\n");
         for(int j = 0; j < nnonz; j++) {
-            assert(val[j] != 0);
+            assert(!ISLPIINFINITILYSMALL(val[j]));
             printf("val[%d]: %f\n", j, val[j]);
         }
     }
@@ -602,8 +604,8 @@ SCIP_RETCODE SCIPlpiLoadColLP(
 
     lpi->nrows = nrows;
     lpi->ncols = ncols;
-    assert( lpi->nrows >= 0 );
-    assert( lpi->ncols >= 0 );
+    assert(lpi->nrows >= 0);
+    assert(lpi->ncols >= 0);
 
     return SCIP_OKAY;
 }
@@ -625,7 +627,7 @@ SCIP_RETCODE addConstraintByCol(
     // 添加小于等于条件
     if (!SCIPlpiIsInfinity(lpi, -lb))
     {
-	    // 添加 b 向量
+        // 添加 b 向量
         lpi->bounds = (SCIP_Real*)realloc(lpi->bounds, sizeof(SCIP_Real) * (++lpi->nconstraints));
         lpi->bounds[lpi->nconstraints - 1] = -lb;
         // 添加 A 矩阵
@@ -683,8 +685,8 @@ SCIP_RETCODE SCIPlpiAddCols(
         const SCIP_Real*      val       /**< values of constraint matrix entries, or NULL if nnonz == 0 */
 )
 {  /*lint --e{715}*/
-    assert( lpi != NULL );
-    assert( lpi->n >= 0 );
+    assert(lpi != NULL);
+    assert(lpi->n >= 0);
     assert(obj != NULL);
     assert(lb != NULL);
     assert(ub != NULL);
@@ -700,7 +702,7 @@ SCIP_RETCODE SCIPlpiAddCols(
         for (int j = 0; j < nnonz; ++j)
         {
             assert(0 <= ind[j] && ind[j] < nrows);
-            assert(val[j] != 0.0);
+            assert(!ISLPIINFINITILYSMALL(val[j]));
             SCIPdebugMessage("beg[i], ind[i], val[i]: (%d, %d, %f)\n", beg[j], ind[j], val[j]);
         }
     }
@@ -886,10 +888,9 @@ SCIP_RETCODE SCIPlpiAddRows(
 #ifndef NDEBUG
     /* perform check that no new columns are added - this is forbidden */
     {
-        int j;
-        for (j = 0; j < nnonz; ++j)
+        for (int j = 0; j < nnonz; ++j)
         {
-            assert(val[j] != 0.0);
+            assert(!ISLPIINFINITILYSMALL(val[j]));
             assert(0 <= ind[j] && ind[j] < lpi->n);
         }
     }
@@ -952,13 +953,12 @@ SCIP_RETCODE SCIPlpiDelRowset(
 )
 {  /*lint --e{715}*/
     int cnt = 0;
-    int i;
 
     assert(lpi != NULL);
     assert(dstat != NULL);
     assert(lpi->nrows >= 0);
 
-    for (i = 0; i < lpi->nrows; ++i)
+    for (int i = 0; i < lpi->nrows; ++i)
     {
         if (dstat[i])
         {
@@ -1001,9 +1001,9 @@ SCIP_RETCODE SCIPlpiChgBounds(
 
     assert(ncols == 0 || (ind != NULL && lb != NULL && ub != NULL));
 
-    if(ncols <= 0)
+    if (ncols <= 0) {
         return SCIP_OKAY;
-
+    }
     for (int j = 0; j < ncols; ++j)
     {
         if (SCIPlpiIsInfinity(lpi, lb[j]))
@@ -2124,7 +2124,7 @@ SCIP_RETCODE SCIPlpiSetIntpar(
     SCIPdebugMessage("calling SCIPlpiSetIntpar()\n");
     assert(lpi != NULL);
 
-    switch( type )
+    switch(type)
     {
         case SCIP_LPPAR_FROMSCRATCH:
             assert(ival == TRUE || ival == FALSE);
@@ -2139,10 +2139,11 @@ SCIP_RETCODE SCIPlpiSetIntpar(
             assert(ival == TRUE || ival == FALSE);
             break;
         case SCIP_LPPAR_LPITLIM:
-            assert( ival >= 0 );
+            assert(ival >= 0);
             /* -1 <= ival, -1 meaning no time limit, 0 stopping immediately */
-            if( ival >= INT_MAX )
+            if (ival >= INT_MAX) {
                 ival = -1;
+            }
             break;
         case SCIP_LPPAR_PRESOLVING:
             assert(ival == TRUE || ival == FALSE);
@@ -2188,7 +2189,7 @@ SCIP_RETCODE SCIPlpiSetRealpar(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiSetRealpar()\n");
     assert(lpi != NULL);
-    switch( type )
+    switch(type)
     {
         case SCIP_LPPAR_FEASTOL:
             break;
@@ -2247,15 +2248,13 @@ SCIP_Bool SCIPlpiIsInfinity(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    if( val >= LPIINFINITY )
+    if(val >= LPIINFINITY) {
         return TRUE;
+    }
     return FALSE;
 }
 
 /**@} */
-
-
-
 
 /*
  * File Interface Methods
