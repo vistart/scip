@@ -1630,11 +1630,11 @@ SCIP_RETCODE SCIPlpiGetObjsen(
 }
 
 /**
- * 从线性规划问题对象中获得一批目标函数系数。
+ * 从线性规划问题对象中获得一批变量在目标函数中的系数。
  * @param lpi 指向线性求解器接口结构体的指针。
  * @param firstcol 起始列号。
  * @param lastcol 结束列号。
- * @param vals 指定列对应的系数。
+ * @param vals 指定列对应的系数。可以通过此参数传出获取结果。
  * @return 获取成功。
  */
 SCIP_RETCODE SCIPlpiGetObj(
