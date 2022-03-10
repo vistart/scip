@@ -345,8 +345,8 @@ SCIP_RETCODE debug_print_column(
     assert(lpi != NULL);
     assert(lpi->columns != NULL);
     assert(lpi->columns->columns_ptr != NULL);
-    SCIPdebugMessage("Col[%d]: %20s, obj: %8.2f, (%8.2f, %8.2f)\n",
-        col, get_column_name(lpi, col), get_column_obj_real(lpi, col), get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
+    SCIPdebugMessage("Col[%d]: %20s, obj: %8.2f, (%8.2f, %8.2f)\n", col, get_column_name(lpi, col),
+        get_column_obj_real(lpi, col), get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
     return SCIP_OKAY;
 }
 
