@@ -109,7 +109,7 @@ option(STATIC_GMP "prefer static gmp library" OFF)
 option(PAPILO "should papilo library be linked" OFF)
 option(ZIMPL "should zimpl be linked" ON)
 option(AMPL "should ampl interface be compiled" ON)
-option(IPOPT "should ipopt be linked" ON)
+option(IPOPT "should ipopt be linked" OFF)
 option(WORHP "should worhp be linked" OFF)
 # for backward compability
 option(PARASCIP "should scip be compiled thread safe (deprecated, use THREADSAFE)" OFF)
