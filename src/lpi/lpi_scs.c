@@ -1676,10 +1676,10 @@ SCIP_RETCODE SCIPlpiGetBounds(
     assert(0 <= firstcol && firstcol <= lastcol && lastcol < get_ncols(lpi));
     for (int i = firstcol; i <= lastcol; i++)
     {
-	    if (lbs != NULL)
-	    {
+        if (lbs != NULL)
+        {
             lbs[i - firstcol] = get_column_lower_bound_real(lpi, i);
-	    }
+        }
         if (ubs != NULL)
         {
             ubs[i - firstcol] = get_column_upper_bound_real(lpi, i);
