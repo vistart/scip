@@ -1629,19 +1629,29 @@ SCIP_RETCODE SCIPlpiGetObjsen(
     return SCIP_PLUGINNOTFOUND;
 }
 
-/** gets objective coefficients from LP problem object */
+/**
+ * 从线性规划问题对象中获得一批目标函数系数。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param firstcol 起始列号。
+ * @param lastcol 结束列号。
+ * @param vals 指定列对应的系数。
+ * @return 获取成功。
+ */
 SCIP_RETCODE SCIPlpiGetObj(
-    SCIP_LPI* lpi,                /**< LP interface structure */
-    int                   firstcol,           /**< first column to get objective coefficient for */
-    int                   lastcol,            /**< last column to get objective coefficient for */
-    SCIP_Real* vals                /**< array to store objective coefficients */
+    SCIP_LPI*  lpi,
+    int        firstcol,
+    int        lastcol,
+    SCIP_Real* vals
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    assert(firstcol <= lastcol);
+    assert(0 <= firstcol && firstcol <= lastcol && lastcol < get_ncols(lpi));
     assert(vals != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    for (int i = firstcol; i <= lastcol; i++)
+    {
+        vals[i - firstcol] = get_column_obj_real(lpi, i);
+    }
+    return SCIP_OKAY;
 }
 
 /** gets current bounds from LP problem object */
