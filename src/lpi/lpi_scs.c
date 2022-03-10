@@ -1655,6 +1655,15 @@ SCIP_RETCODE SCIPlpiGetObj(
 }
 
 /** gets current bounds from LP problem object */
+/**
+ * 从线性规划问题对象中获得一批变量的上下界。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param firstcol 起始列号。
+ * @param lastcol 结束列号。
+ * @param lbs 下界。可以通过此参数传出获取结果。
+ * @param ubs 上界。可以通过此参数传出获取结果。
+ * @return 获取成功。
+ */
 SCIP_RETCODE SCIPlpiGetBounds(
     SCIP_LPI* lpi,                /**< LP interface structure */
     int                   firstcol,           /**< first column to get bounds for */
@@ -1664,9 +1673,19 @@ SCIP_RETCODE SCIPlpiGetBounds(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    assert(firstcol <= lastcol);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    assert(0 <= firstcol && firstcol <= lastcol && lastcol < get_ncols(lpi));
+    for (int i = firstcol; i <= lastcol; i++)
+    {
+	    if (lbs != NULL)
+	    {
+            lbs[i - firstcol] = get_column_lower_bound_real(lpi, i);
+	    }
+        if (ubs != NULL)
+        {
+            ubs[i - firstcol] = get_column_upper_bound_real(lpi, i);
+        }
+    }
+    return SCIP_OKAY;
 }
 
 /** gets current row sides from LP problem object */
