@@ -101,8 +101,6 @@ struct SCIP_LPi
     SCIP_Real             conditionlimit;
     SCIP_Bool             checkcondition;
     SCIP_Real             markowitz;
-    int                   m;
-    int                   n;
 };
 
 /** LPi state stores basis information */
@@ -826,7 +824,7 @@ SCIP_RETCODE SCIPlpiSetIntegralityInformation(
     {
         set_column_integrality(lpi, i, intInfo[i]);
     }
-	return SCIP_OKAY;
+    return SCIP_OKAY;
 }
 
 /** informs about availability of a primal simplex solving method */
@@ -1809,22 +1807,24 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
         if (!SCIPlpiIsInfinity(lpi, -lb))
         {
             (*CVector)[nvector_ptr] = (SCIP_Real*)calloc(1, sizeof(SCIP_Real));
-        	(*CVector)[nvector_ptr][0] =  -lb;
+            (*CVector)[nvector_ptr][0] = -lb;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
             (*AMatrixOfColumns)[nvector_ptr] = (SCIP_Real*)calloc(sizeof(SCIP_Real), ncols);
             (*AMatrixOfColumns)[nvector_ptr][i] = -get_column_obj_real(lpi, i);
-            SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i, (*AMatrixOfColumns)[nvector_ptr][i]);
+            SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
+                (*AMatrixOfColumns)[nvector_ptr][i]);
             nvector_ptr++;
         }
         SCIP_Real ub = get_column_upper_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, ub))
         {
             (*CVector)[nvector_ptr] = (SCIP_Real*)calloc(1, sizeof(SCIP_Real));
-        	(*CVector)[nvector_ptr][0] = ub;
+            (*CVector)[nvector_ptr][0] = ub;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
             (*AMatrixOfColumns)[nvector_ptr] = (SCIP_Real*)calloc(sizeof(SCIP_Real), ncols);
             (*AMatrixOfColumns)[nvector_ptr][i] = get_column_obj_real(lpi, i);
-            SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i, (*AMatrixOfColumns)[nvector_ptr][i]);
+            SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
+                (*AMatrixOfColumns)[nvector_ptr][i]);
             nvector_ptr++;
         }
     }
@@ -1873,7 +1873,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
             }
             *AMatrixOfRows = realloc(*AMatrixOfRows, sizeof(SCIP_Real*) * ++*nvector);
             (*AMatrixOfRows)[*nvector - 1] = AVectorRHS;
-        	*CVector = realloc(*CVector, sizeof(SCIP_Real*) * *nvector);
+            *CVector = realloc(*CVector, sizeof(SCIP_Real*) * *nvector);
             (*CVector)[*nvector - 1] = (SCIP_Real*)calloc(1, sizeof(SCIP_Real));
             (*CVector)[*nvector - 1][0] = rhs;
         }
@@ -1887,14 +1887,14 @@ SCIP_RETCODE debug_print_matrix_real(
     int col
 )
 {
-	for (int i = 0; i < row; i++)
-	{
-		for (int j = 0; j < col; j++)
-		{
+    for (int i = 0; i < row; i++)
+    {
+        for (int j = 0; j < col; j++)
+        {
             SCIPdebugMessage("matrix[%d][%d]: %8.2f", i, j, matrix[i][j]);
-		}
+        }
         SCIPdebugMessage("\n");
-	}
+    }
     return SCIP_OKAY;
 }
 
@@ -1942,18 +1942,18 @@ SCIP_RETCODE CompactMatrix(
     *p = (scs_int*)calloc(col + 1, sizeof(scs_int));
     for (int i = 0; i < row; i++)
     {
-	    for (int j = 0; j < col; j++)
-	    {
-		    if (ISLPIINFINITESIMAL(matrix[i][j]))
-		    {
+        for (int j = 0; j < col; j++)
+        {
+            if (ISLPIINFINITESIMAL(matrix[i][j]))
+            {
                 continue;
-		    }
+            }
             *x = realloc(*x, ++nnonz * sizeof(scs_float));
             (*x)[nnonz - 1] = matrix[i][j];
             *ix = realloc(*ix, nnonz * sizeof(scs_int));
             (*ix)[nnonz - 1] = j;
             (*p)[j + 1]++;
-	    }
+        }
     }
     for (int i = 1; i <= col; i++)
     {
@@ -1963,14 +1963,14 @@ SCIP_RETCODE CompactMatrix(
     int nnonzbycol = 0;
     for (int j = 0; j < col; j++)
     {
-	    for (int i = 0; i < row; i++)
-	    {
-		    if (ISLPIINFINITESIMAL(matrix[i][j]))
-		    {
+        for (int i = 0; i < row; i++)
+        {
+            if (ISLPIINFINITESIMAL(matrix[i][j]))
+            {
                 continue;
-		    }
+            }
             nnonzbycol++;
-	    }
+        }
         (*p)[j + 1] = nnonzbycol;
     }*/
     return SCIP_OKAY;
@@ -2075,24 +2075,24 @@ SCIP_RETCODE ConstructScsData(
 )
 {
     assert(lpi != NULL);
-    scs_float* Px;
-    scs_int* Pi;
-    scs_int* Pp;
+    scs_float* Px = NULL;
+    scs_int* Pi = NULL;
+    scs_int* Pp = {0};
     ConstructPMatrix(lpi, &Px, &Pi, &Pp);
-    scs_float* Ax;
-    scs_int* Ai;
-    scs_int* Ap;
-    int m;
-    int n;
-    scs_float* b;
-    scs_float* c;
+    scs_float* Ax = NULL;
+    scs_int* Ai = NULL;
+    scs_int* Ap = NULL;
+    int m = 0;
+    int n = 0;
+    scs_float* b = NULL;
+    scs_float* c = NULL;
     ConstructAMatrix(lpi, &Ax, &Ai, &Ap, &b, &c, &m, &n);
     lpi->scsdata->m = m;
     lpi->scsdata->n = n;
     lpi->scsdata->b = b;
     lpi->scsdata->c = c;
     lpi->scsdata->A = &(ScsMatrix) { Ax, Ai, Ap, m, n};
-    lpi->scsdata->P = &(ScsMatrix) { {0}, {0}, { 0 }, n, n };
+    lpi->scsdata->P = &(ScsMatrix) { Px, Pi, Pp, n, n };
     return SCIP_OKAY;
 }
 
@@ -3018,8 +3018,8 @@ SCIP_RETCODE SCIPlpiSetRealpar(
         lpi->lptilim = dval;
         break;
     case SCIP_LPPAR_ROWREPSWITCH:
-        assert(dval >= 0.0 || dval == -1.0);
-        if (dval == -1)
+        assert(dval > 0.0 || ISLPIINFINITESIMAL(dval) || ISLPIINFINITESIMAL(dval + 1.0));
+        if (ISLPIINFINITESIMAL(dval + 1))
         {
             lpi->rowrepswitch = SCIPlpiInfinity(lpi);
         } else
@@ -3029,7 +3029,7 @@ SCIP_RETCODE SCIPlpiSetRealpar(
         break;
     case SCIP_LPPAR_CONDITIONLIMIT:
         lpi->conditionlimit = dval;
-        lpi->checkcondition = (dval >= 0.0);
+        lpi->checkcondition = dval > 0.0 || ISLPIINFINITESIMAL(dval);
         break;
     case SCIP_LPPAR_BARRIERCONVTOL:
         /**
