@@ -1566,12 +1566,7 @@ SCIP_RETCODE SCIPlpiGetNNonz(
     assert(lpi->scsdata != NULL);
     assert(lpi->scsdata->A != NULL);
     assert(lpi->scsdata->A->p != NULL);
-    double* p = lpi->scsdata->A->p;
-    *nnonz = 0;
-    while (p != NULL) {
-        *nnonz++;
-        p++;
-    }
+    *nnonz = (int)(lpi->scsdata->A->p[lpi->scsdata->A->n]);
     return SCIP_OKAY;
 }
 
@@ -1770,6 +1765,14 @@ SCIP_RETCODE SCIPlpiGetCoef(
  /**@name Solving Methods */
  /**@{ */
 
+/**
+ * 根据 SCIP 提供的列（Column）构建 SCS 的 A 矩阵（约束）和对应的 c 向量（约束上界）。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param AMatrixOfColumns 仅包含列信息的A矩阵。
+ * @param CVector 与A矩阵对应的 c 向量。
+ * @paran nvector 行数。
+ * @return 执行成功。
+ */
 SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     SCIP_LPI*   lpi,
     scs_float*** AMatrixOfColumns,
@@ -1915,9 +1918,9 @@ SCIP_RETCODE CombineTwoMatricesByRow(
     scs_float** matrixA,
     scs_float** matrixB,
     scs_float*** matrix,
-    const scs_int nrowA,
-    const scs_int nrowB,
-    const scs_int ncol
+    const int nrowA,
+    const int nrowB,
+    const int ncol
 )
 {
     *matrix = (scs_float**)calloc(nrowA + nrowB, sizeof(scs_float*));
@@ -1942,8 +1945,8 @@ SCIP_RETCODE CombineTwoMatricesByRow(
 
 SCIP_RETCODE CompressMatrixByRow(
     scs_float** matrix,
-    const scs_int row,
-    const scs_int col,
+    const int row,
+    const int col,
     scs_float** x,
     scs_int** ix,
     scs_int** p
@@ -1987,8 +1990,8 @@ SCIP_RETCODE CompressMatrixByRow(
 
 SCIP_RETCODE CompressMatrixByColumn(
     scs_float** matrix,
-    const scs_int row,
-    const scs_int col,
+    const int row,
+    const int col,
     scs_float** x,
     scs_int** ix,
     scs_int** p
@@ -2019,8 +2022,8 @@ SCIP_RETCODE CompressMatrixByColumn(
 SCIP_RETCODE InverseMatrix(
     scs_float** origin,
     scs_float*** result,
-    scs_int row,
-    scs_int col
+    int row,
+    int col
 )
 {
     *result = (scs_float**)calloc(col, sizeof(scs_float*));
@@ -2039,17 +2042,16 @@ SCIP_RETCODE InverseMatrix(
 }
 
 SCIP_RETCODE ConstructPMatrix(
-    SCIP_LPI* lpi,
     scs_float** Px,
     scs_int** Pi,
     scs_int** Pp,
-    scs_int n
+    int n
 )
 {
     scs_float** matrix = calloc(n, sizeof(scs_float*));
     for (int i = 0; i < n; i++)
     {
-        matrix[i] = (scs_float*)calloc(n, sizeof(scs_float*));
+        matrix[i] = (scs_float*)calloc(n, sizeof(scs_float));
     }
     return CompressMatrixByColumn(matrix, n, n, &*Px, &*Pi, &*Pp);
 }
@@ -2074,21 +2076,23 @@ SCIP_RETCODE ConstructAMatrix(
     scs_int** Ap,
     scs_float** b,
     scs_float** c,
-    scs_int*  m,
-    scs_int*  n
+    int*  m,
+    int*  n
 )
 {
     scs_float** AMatrixOfColumns;
     scs_float** CVectorOfColumns;
-    scs_int nvectorCol = 0;
+    int nvectorCol = 0;
     ConstructAMatrixAndCVectorByColumns(lpi, &AMatrixOfColumns, &CVectorOfColumns, &nvectorCol);
+    assert(AMatrixOfColumns != NULL);
+    assert(CVectorOfColumns != NULL);
 
     debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
     debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
 
     scs_float** AMatrixOfRows;
     scs_float** CVectorOfRows;
-    scs_int nvectorRow = 0;
+    int nvectorRow = 0;
     ConstructAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows, &nvectorRow);
 
     debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
@@ -2122,21 +2126,32 @@ SCIP_RETCODE ConstructScsData(
     scs_float* Ax = NULL;
     scs_int* Ai = NULL;
     scs_int* Ap = NULL;
-    scs_int m = 0;
-    scs_int n = 0;
+    int m = 0;
+    int n = 0;
     scs_float* b = NULL;
     scs_float* c = NULL;
     ConstructAMatrix(lpi, &Ax, &Ai, &Ap, &b, &c, &m, &n);
+    assert(Ax != NULL);
+    assert(Ai != NULL);
+    assert(Ap != NULL);
+    
     lpi->scsdata->m = m;
     lpi->scsdata->n = n;
     scs_float* Px = NULL;
     scs_int* Pi = NULL;
     scs_int* Pp = NULL;
-    ConstructPMatrix(lpi, &Px, &Pi, &Pp, n);
+    ConstructPMatrix(&Px, &Pi, &Pp, n);
+    assert(Px != NULL);
+    assert(Pi != NULL);
+    assert(Pp != NULL);
     lpi->scsdata->b = b;
     lpi->scsdata->c = c;
-    lpi->scsdata->A = &(ScsMatrix) { Ax, Ai, Ap, m, n};
-    lpi->scsdata->P = &(ScsMatrix) { Px, Pi, Pp, n, n };
+    ScsMatrix A = { Ax, Ai, Ap, m, n };
+    lpi->scsdata->A = (ScsMatrix*)calloc(1, sizeof(A));
+    memcpy(lpi->scsdata->A, &A, sizeof(A));
+    ScsMatrix P = { Px, Pi, Pp, n, n};
+    lpi->scsdata->P = (ScsMatrix*)calloc(1, sizeof(P));
+    memcpy(lpi->scsdata->P, &P, sizeof(P));
     return SCIP_OKAY;
 }
 
@@ -2146,25 +2161,38 @@ SCIP_RETCODE debug_print_scs_data(
 {
     assert(lpi != NULL);
     assert(lpi->scsdata != NULL);
-    assert(lpi->scsdata->A != NULL);
-    assert(lpi->scsdata->P != NULL);
-    assert(lpi->scsdata->b != NULL);
-    assert(lpi->scsdata->c != NULL);
     assert(lpi->scsdata->m > 0);
     assert(lpi->scsdata->n > 0);
-    assert(lpi->scsdata->A->m == lpi->scsdata->A->n && lpi->scsdata->A->m == lpi->scsdata->n);
-    assert(lpi->scsdata->P->m == lpi->scsdata->m && lpi->scsdata->P->n == lpi->scsdata->n);
+    assert(lpi->scsdata->A != NULL);
+    assert(lpi->scsdata->A->m == lpi->scsdata->m && lpi->scsdata->A->n == lpi->scsdata->n);
+    assert(lpi->scsdata->P != NULL);
+    assert(lpi->scsdata->P->m == lpi->scsdata->n && lpi->scsdata->P->n == lpi->scsdata->n);
+    assert(lpi->scsdata->b != NULL);
+    assert(lpi->scsdata->c != NULL);
     SCIPdebugMessage("SCSData P matrix:\n");
-    for (int i = 0; i < 4; i++)
+    scs_int nnonz = lpi->scsdata->P->p[lpi->scsdata->P->n];
+    if (nnonz) {
+        for (int i = 0; i < nnonz; i++)
+        {
+            SCIPdebugMessage("%8.2f at %lld, ", lpi->scsdata->P->x[i], lpi->scsdata->P->i[i]);
+        }
+        SCIPdebugMessage("\n");
+    } else
     {
-        SCIPdebugMessage("%8.2f ", lpi->scsdata->P->p[i]);
+        SCIPdebugMessage("P matrix is empty.\n");
     }
-    SCIPdebugMessage("\n");
 
     SCIPdebugMessage("SCSData A matrix:\n");
-    for (int i = 0; i < 12; i++)
+    nnonz = lpi->scsdata->A->p[lpi->scsdata->A->n];
+    if (nnonz) {
+        for (int i = 0; i < nnonz; i++)
+        {
+            SCIPdebugMessage("%8.2f at %lld ", lpi->scsdata->A->x[i], lpi->scsdata->A->i[i]);
+        }
+        SCIPdebugMessage("\n");
+    } else
     {
-        SCIPdebugMessage("%8.2f ", lpi->scsdata->A->x[i]);
+        SCIPdebugMessage("A matrix is empty.\n");
     }
     return SCIP_OKAY;
 }
@@ -2175,32 +2203,7 @@ SCIP_RETCODE scsSolve(
 {
     assert(lpi != NULL);
     ConstructScsData(lpi);
-    /**
-	scs_float Px[3] = { 3., -1., 2. };
-    scs_int Pi[3] = { 0, 0, 1 };
-    scs_int Pp[3] = { 0, 1, 3 };
-    scs_float Ax[4] = { -1., 1., 1., 1. };
-    scs_int Ai[4] = { 0, 1, 0, 2 };
-    scs_int Ap[3] = { 0, 2, 4 };
-    scs_float b[3] = { -1., 0.3, -0.5 };
-    scs_float c[2] = { -1., -1. };
-    scs_int m = 3;
-    scs_int n = 2;
-    lpi->scscone = (ScsCone*)calloc(1, sizeof(ScsCone));
-    lpi->scsdata = (ScsData*)calloc(1, sizeof(ScsData));
-    lpi->scsstgs = (ScsSettings*)calloc(1, sizeof(ScsSettings));
-    lpi->scssol = (ScsSolution*)calloc(1, sizeof(ScsSolution));
-    lpi->scsinfo = (ScsInfo*)calloc(1, sizeof(ScsInfo));
-    lpi->scsdata->m = m;
-    lpi->scsdata->n = n;
-    lpi->scsdata->b = b;
-    lpi->scsdata->c = c;
-    lpi->scsdata->A = &(ScsMatrix) { Ax, Ai, Ap, m, n};
-    lpi->scsdata->P = &(ScsMatrix) { Px, Pi, Pp, n, n };
-
-    lpi->scscone->z = 1;
-    lpi->scscone->l = 2;
-    */
+    debug_print_scs_data(lpi);
     lpi->scscone->z = 0;
     lpi->scscone->l = lpi->scsdata->m;
     scs_set_default_settings(lpi->scsstgs);
@@ -2404,10 +2407,13 @@ SCIP_RETCODE SCIPlpiGetSolFeasibility(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
+    assert(lpi->scsinfo != NULL);
     assert(primalfeasible != NULL);
     assert(dualfeasible != NULL);
+    *primalfeasible = 1;
+    *dualfeasible = 1;
     errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    return SCIP_OKAY;
 }
 
 /** returns TRUE iff LP is proven to have a primal unbounded ray (but not necessary a primal feasible point);
@@ -2658,9 +2664,10 @@ SCIP_RETCODE SCIPlpiGetIterations(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
+    assert(lpi->scsinfo != NULL);
     assert(iterations != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    *iterations = lpi->scsinfo->iter;
+    return SCIP_OKAY;
 }
 
 /** gets information about the quality of an LP solution
