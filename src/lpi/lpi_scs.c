@@ -524,6 +524,12 @@ SCIP_RETCODE clear_columns(
     return SCIP_OKAY;
 }
 
+/**
+ * 获取行左边界值。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param row 行号。
+ * @return 获取成功。
+ */
 SCIP_Real get_row_lhs_real(
     SCIP_LPI* lpi,
     int row
@@ -538,6 +544,13 @@ SCIP_Real get_row_lhs_real(
     return lpi->rows->rows_ptr[row]->lhs;
 }
 
+/**
+ * 设置行左边界值。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param row 行号。
+ * @param val 左边界值。
+ * @return 设置成功。
+ */
 SCIP_RETCODE set_row_lhs_real(
     SCIP_LPI* lpi,
     int row,
@@ -1759,8 +1772,8 @@ SCIP_RETCODE SCIPlpiGetCoef(
 
 SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     SCIP_LPI*   lpi,
-    SCIP_Real*** AMatrixOfColumns,
-    SCIP_Real*** CVector,
+    scs_float*** AMatrixOfColumns,
+    scs_float*** CVector,
     int*         nvector
 )
 {
@@ -1774,7 +1787,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     *nvector = 0;
     for (int i = 0; i < ncols; i++)
     {
-        SCIP_Real lb = get_column_lower_bound_real(lpi, i);
+        scs_float lb = get_column_lower_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lb))
         {
             ++*nvector;
@@ -1785,7 +1798,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
             //(*AMatrixOfColumns)[*nvector - 1] = (SCIP_Real*)calloc(sizeof(SCIP_Real), ncols);
             //(*AMatrixOfColumns)[*nvector - 1][i] = -get_column_obj_real(lpi, i);
         }
-        SCIP_Real ub = get_column_upper_bound_real(lpi, i);
+        scs_float ub = get_column_upper_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, ub))
         {
             ++*nvector;
@@ -1799,29 +1812,29 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     }
     SCIPdebugMessage("*nvector: %d\n", *nvector);
     int nvector_ptr = 0;
-    *AMatrixOfColumns = (SCIP_Real**)calloc(sizeof(SCIP_Real*), *nvector);
-    *CVector = (SCIP_Real**)calloc(sizeof(SCIP_Real*), *nvector);
+    *AMatrixOfColumns = (scs_float**)calloc(sizeof(scs_float*), *nvector);
+    *CVector = (scs_float**)calloc(sizeof(scs_float*), *nvector);
     for (int i = 0; i < ncols; i++)
     {
-        SCIP_Real lb = get_column_lower_bound_real(lpi, i);
+        scs_float lb = get_column_lower_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lb))
         {
-            (*CVector)[nvector_ptr] = (SCIP_Real*)calloc(1, sizeof(SCIP_Real));
+            (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = -lb;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
-            (*AMatrixOfColumns)[nvector_ptr] = (SCIP_Real*)calloc(sizeof(SCIP_Real), ncols);
+            (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(sizeof(scs_float), ncols);
             (*AMatrixOfColumns)[nvector_ptr][i] = -get_column_obj_real(lpi, i);
             SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
                 (*AMatrixOfColumns)[nvector_ptr][i]);
             nvector_ptr++;
         }
-        SCIP_Real ub = get_column_upper_bound_real(lpi, i);
+        scs_float ub = get_column_upper_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, ub))
         {
-            (*CVector)[nvector_ptr] = (SCIP_Real*)calloc(1, sizeof(SCIP_Real));
+            (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = ub;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
-            (*AMatrixOfColumns)[nvector_ptr] = (SCIP_Real*)calloc(sizeof(SCIP_Real), ncols);
+            (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(sizeof(scs_float), ncols);
             (*AMatrixOfColumns)[nvector_ptr][i] = get_column_obj_real(lpi, i);
             SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
                 (*AMatrixOfColumns)[nvector_ptr][i]);
@@ -1833,8 +1846,8 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
 
 SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
     SCIP_LPI* lpi,
-    SCIP_Real*** AMatrixOfRows,
-    SCIP_Real*** CVector,
+    scs_float*** AMatrixOfRows,
+    scs_float*** CVector,
     int*         nvector
 )
 {
@@ -1844,37 +1857,37 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
     {
         return SCIP_OKAY;
     }
-    *AMatrixOfRows = (SCIP_Real**)calloc(sizeof(SCIP_Real*), 0);
-    *CVector = (SCIP_Real**)calloc(sizeof(SCIP_Real*), 0);
+    *AMatrixOfRows = (scs_float**)calloc(sizeof(scs_float*), 0);
+    *CVector = (scs_float**)calloc(sizeof(scs_float*), 0);
     *nvector = 0;
     for (int i = 0; i < get_nrows(lpi); i++)
     {
-        const SCIP_Real lhs = get_row_lhs_real(lpi, i);
+        const scs_float lhs = get_row_lhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lhs))
         {
-            SCIP_Real* AVectorLHS = (SCIP_Real*)calloc(sizeof(SCIP_Real), nrows);
+            scs_float* AVectorLHS = calloc(sizeof(scs_float), nrows);
             for (int j = 0; j < get_ncols(lpi); j++)
             {
                 AVectorLHS[j] = -get_row_obj_real(lpi, i, j);
             }
-            *AMatrixOfRows = realloc(*AMatrixOfRows, sizeof(SCIP_Real*) * ++*nvector);
+            *AMatrixOfRows = realloc(*AMatrixOfRows, sizeof(scs_float*) * ++*nvector);
             (*AMatrixOfRows)[*nvector - 1] = AVectorLHS;
-            *CVector = realloc(*CVector, sizeof(SCIP_Real*) * *nvector);
-            (*CVector)[*nvector - 1] = (SCIP_Real*)calloc(1, sizeof(SCIP_Real));
+            *CVector = realloc(*CVector, sizeof(scs_float*) * *nvector);
+            (*CVector)[*nvector - 1] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[*nvector - 1][0] = -lhs;
         }
-        const SCIP_Real rhs = get_row_rhs_real(lpi, i);
+        const scs_float rhs = get_row_rhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, rhs))
         {
-            SCIP_Real* AVectorRHS = (SCIP_Real*)calloc(sizeof(SCIP_Real), nrows);
+            scs_float* AVectorRHS = calloc(sizeof(scs_float), nrows);
             for (int j = 0; j < get_ncols(lpi); j++)
             {
                 AVectorRHS[j] = get_row_obj_real(lpi, i, j);
             }
-            *AMatrixOfRows = realloc(*AMatrixOfRows, sizeof(SCIP_Real*) * ++*nvector);
+            *AMatrixOfRows = realloc(*AMatrixOfRows, sizeof(scs_float*) * ++*nvector);
             (*AMatrixOfRows)[*nvector - 1] = AVectorRHS;
-            *CVector = realloc(*CVector, sizeof(SCIP_Real*) * *nvector);
-            (*CVector)[*nvector - 1] = (SCIP_Real*)calloc(1, sizeof(SCIP_Real));
+            *CVector = realloc(*CVector, sizeof(scs_float*) * *nvector);
+            (*CVector)[*nvector - 1] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[*nvector - 1][0] = rhs;
         }
     }
@@ -1883,8 +1896,8 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
 
 SCIP_RETCODE debug_print_matrix_real(
     scs_float** matrix,
-    int row,
-    int col
+    scs_int row,
+    scs_int col
 )
 {
     for (int i = 0; i < row; i++)
@@ -1902,9 +1915,9 @@ SCIP_RETCODE CombineTwoMatricesByRow(
     scs_float** matrixA,
     scs_float** matrixB,
     scs_float*** matrix,
-    const int nrowA,
-    const int nrowB,
-    const int ncol
+    const scs_int nrowA,
+    const scs_int nrowB,
+    const scs_int ncol
 )
 {
     *matrix = (scs_float**)calloc(nrowA + nrowB, sizeof(scs_float*));
@@ -1927,10 +1940,10 @@ SCIP_RETCODE CombineTwoMatricesByRow(
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE CompactMatrix(
+SCIP_RETCODE CompressMatrixByRow(
     scs_float** matrix,
-    const int row,
-    const int col,
+    const scs_int row,
+    const scs_int col,
     scs_float** x,
     scs_int** ix,
     scs_int** p
@@ -1939,7 +1952,7 @@ SCIP_RETCODE CompactMatrix(
     int nnonz = 0;
     *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
     *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
-    *p = (scs_int*)calloc(col + 1, sizeof(scs_int));
+    *p = (scs_int*)calloc(row + 1, sizeof(scs_int));
     for (int i = 0; i < row; i++)
     {
         for (int j = 0; j < col; j++)
@@ -1952,12 +1965,8 @@ SCIP_RETCODE CompactMatrix(
             (*x)[nnonz - 1] = matrix[i][j];
             *ix = realloc(*ix, nnonz * sizeof(scs_int));
             (*ix)[nnonz - 1] = j;
-            (*p)[j + 1]++;
         }
-    }
-    for (int i = 1; i <= col; i++)
-    {
-        (*p)[i] += (*p)[i - 1];
+        (*p)[i + 1] = nnonz;
     }
     /**
     int nnonzbycol = 0;
@@ -1976,11 +1985,42 @@ SCIP_RETCODE CompactMatrix(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE CompressMatrixByColumn(
+    scs_float** matrix,
+    const scs_int row,
+    const scs_int col,
+    scs_float** x,
+    scs_int** ix,
+    scs_int** p
+)
+{
+    int nnonz = 0;
+    *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
+    *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
+    *p = (scs_int*)calloc(col + 1, sizeof(scs_int));
+    for (int i = 0; i < col; i++)
+    {
+        for (int j = 0; j < row; j++)
+        {
+            if (ISLPIINFINITESIMAL(matrix[j][i]))
+            {
+                continue;
+            }
+            *x = realloc(*x, ++nnonz * sizeof(scs_float));
+            (*x)[nnonz - 1] = matrix[j][i];
+            *ix = realloc(*ix, nnonz * sizeof(scs_int));
+            (*ix)[nnonz - 1] = j;
+        }
+        (*p)[i + 1] = nnonz;
+    }
+    return SCIP_OKAY;
+}
+
 SCIP_RETCODE InverseMatrix(
     scs_float** origin,
     scs_float*** result,
-    int row,
-    int col
+    scs_int row,
+    scs_int col
 )
 {
     *result = (scs_float**)calloc(col, sizeof(scs_float*));
@@ -2002,20 +2042,24 @@ SCIP_RETCODE ConstructPMatrix(
     SCIP_LPI* lpi,
     scs_float** Px,
     scs_int** Pi,
-    scs_int** Pp
+    scs_int** Pp,
+    scs_int n
 )
 {
-    SCIP_Real** matrix = NULL;
-    CompactMatrix(matrix, 0, 0, &*Px, &*Pi, &*Pp);
-    return SCIP_OKAY;
+    scs_float** matrix = calloc(n, sizeof(scs_float*));
+    for (int i = 0; i < n; i++)
+    {
+        matrix[i] = (scs_float*)calloc(n, sizeof(scs_float*));
+    }
+    return CompressMatrixByColumn(matrix, n, n, &*Px, &*Pi, &*Pp);
 }
 
 SCIP_RETCODE ConstructCVector(
     SCIP_LPI* lpi,
-    SCIP_Real** c
+    scs_float** c
 )
 {
-    *c = (SCIP_Real*)calloc(get_ncols(lpi), sizeof(SCIP_Real));
+    *c = (scs_float*)calloc(get_ncols(lpi), sizeof(scs_float));
     for (int i = 0; i < get_ncols(lpi); i++)
     {
         (*c)[i] = get_column_obj_real(lpi, i);
@@ -2030,13 +2074,13 @@ SCIP_RETCODE ConstructAMatrix(
     scs_int** Ap,
     scs_float** b,
     scs_float** c,
-    int*  m,
-    int*  n
+    scs_int*  m,
+    scs_int*  n
 )
 {
     scs_float** AMatrixOfColumns;
     scs_float** CVectorOfColumns;
-    int nvectorCol = 0;
+    scs_int nvectorCol = 0;
     ConstructAMatrixAndCVectorByColumns(lpi, &AMatrixOfColumns, &CVectorOfColumns, &nvectorCol);
 
     debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
@@ -2044,7 +2088,7 @@ SCIP_RETCODE ConstructAMatrix(
 
     scs_float** AMatrixOfRows;
     scs_float** CVectorOfRows;
-    int nvectorRow = 0;
+    scs_int nvectorRow = 0;
     ConstructAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows, &nvectorRow);
 
     debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
@@ -2061,7 +2105,7 @@ SCIP_RETCODE ConstructAMatrix(
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
     debug_print_matrix_real(CVector, *m, 1);
 
-    CompactMatrix(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
+    CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
 
     scs_float** Ib;
     InverseMatrix(CVector, &Ib, *m, 1);
@@ -2075,24 +2119,53 @@ SCIP_RETCODE ConstructScsData(
 )
 {
     assert(lpi != NULL);
-    scs_float* Px = NULL;
-    scs_int* Pi = NULL;
-    scs_int* Pp = {0};
-    ConstructPMatrix(lpi, &Px, &Pi, &Pp);
     scs_float* Ax = NULL;
     scs_int* Ai = NULL;
     scs_int* Ap = NULL;
-    int m = 0;
-    int n = 0;
+    scs_int m = 0;
+    scs_int n = 0;
     scs_float* b = NULL;
     scs_float* c = NULL;
     ConstructAMatrix(lpi, &Ax, &Ai, &Ap, &b, &c, &m, &n);
     lpi->scsdata->m = m;
     lpi->scsdata->n = n;
+    scs_float* Px = NULL;
+    scs_int* Pi = NULL;
+    scs_int* Pp = NULL;
+    ConstructPMatrix(lpi, &Px, &Pi, &Pp, n);
     lpi->scsdata->b = b;
     lpi->scsdata->c = c;
     lpi->scsdata->A = &(ScsMatrix) { Ax, Ai, Ap, m, n};
     lpi->scsdata->P = &(ScsMatrix) { Px, Pi, Pp, n, n };
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE debug_print_scs_data(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->scsdata != NULL);
+    assert(lpi->scsdata->A != NULL);
+    assert(lpi->scsdata->P != NULL);
+    assert(lpi->scsdata->b != NULL);
+    assert(lpi->scsdata->c != NULL);
+    assert(lpi->scsdata->m > 0);
+    assert(lpi->scsdata->n > 0);
+    assert(lpi->scsdata->A->m == lpi->scsdata->A->n && lpi->scsdata->A->m == lpi->scsdata->n);
+    assert(lpi->scsdata->P->m == lpi->scsdata->m && lpi->scsdata->P->n == lpi->scsdata->n);
+    SCIPdebugMessage("SCSData P matrix:\n");
+    for (int i = 0; i < 4; i++)
+    {
+        SCIPdebugMessage("%8.2f ", lpi->scsdata->P->p[i]);
+    }
+    SCIPdebugMessage("\n");
+
+    SCIPdebugMessage("SCSData A matrix:\n");
+    for (int i = 0; i < 12; i++)
+    {
+        SCIPdebugMessage("%8.2f ", lpi->scsdata->A->x[i]);
+    }
     return SCIP_OKAY;
 }
 
@@ -2102,6 +2175,38 @@ SCIP_RETCODE scsSolve(
 {
     assert(lpi != NULL);
     ConstructScsData(lpi);
+    /**
+	scs_float Px[3] = { 3., -1., 2. };
+    scs_int Pi[3] = { 0, 0, 1 };
+    scs_int Pp[3] = { 0, 1, 3 };
+    scs_float Ax[4] = { -1., 1., 1., 1. };
+    scs_int Ai[4] = { 0, 1, 0, 2 };
+    scs_int Ap[3] = { 0, 2, 4 };
+    scs_float b[3] = { -1., 0.3, -0.5 };
+    scs_float c[2] = { -1., -1. };
+    scs_int m = 3;
+    scs_int n = 2;
+    lpi->scscone = (ScsCone*)calloc(1, sizeof(ScsCone));
+    lpi->scsdata = (ScsData*)calloc(1, sizeof(ScsData));
+    lpi->scsstgs = (ScsSettings*)calloc(1, sizeof(ScsSettings));
+    lpi->scssol = (ScsSolution*)calloc(1, sizeof(ScsSolution));
+    lpi->scsinfo = (ScsInfo*)calloc(1, sizeof(ScsInfo));
+    lpi->scsdata->m = m;
+    lpi->scsdata->n = n;
+    lpi->scsdata->b = b;
+    lpi->scsdata->c = c;
+    lpi->scsdata->A = &(ScsMatrix) { Ax, Ai, Ap, m, n};
+    lpi->scsdata->P = &(ScsMatrix) { Px, Pi, Pp, n, n };
+
+    lpi->scscone->z = 1;
+    lpi->scscone->l = 2;
+    */
+    lpi->scscone->z = 0;
+    lpi->scscone->l = lpi->scsdata->m;
+    scs_set_default_settings(lpi->scsstgs);
+    lpi->scsstgs->eps_abs = 1e-9;
+    lpi->scsstgs->eps_rel = 1e-9;
+
     lpi->scswork = scs_init(lpi->scsdata, lpi->scscone, lpi->scsstgs);
     int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
     scs_finish(lpi->scswork);
