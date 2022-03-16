@@ -20,7 +20,7 @@
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeExecutable": "cmake",
-      "cmakeCommandArgs": "-DLPS=spx -DPROBLEM_DEBUG=on",
+      "cmakeCommandArgs": "-DLPS=spx -DPROBLEM_DEBUG=on -DPAPILO=On -DIPOPT=on",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "linux_x64" ],
@@ -33,7 +33,7 @@
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeExecutable": "cmake",
-      "cmakeCommandArgs": "-DLPS=spx -DPROBLEM_DEBUG=on -DSCIP_DEBUG=on",
+      "cmakeCommandArgs": "-DLPS=spx -DPROBLEM_DEBUG=on -DSCIP_DEBUG=on -DPAPILO=On -DIPOPT=on",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "linux_x64" ],
@@ -76,8 +76,7 @@
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "linux_x64" ],
-      "wslPath": "${defaultWSLPath}",
-      "variables": []
+      "wslPath": "${defaultWSLPath}"
     }
   ]
 }
