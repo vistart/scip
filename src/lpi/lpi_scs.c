@@ -76,29 +76,30 @@ struct SCIP_Rows
 struct SCIP_LPi
 {
     //SPxSCIP*              scs;                /**< our SCS implementation */
-    ScsData* scsdata;
-    ScsCone* scscone;
-    ScsSettings* scsstgs;
-    ScsSolution* scssol;
-    ScsInfo* scsinfo;
-    ScsWork* scswork;            /**< our SCS work structure *//* 暂时不启用 */
-    int* cstat;              /**< array for storing column basis status *//* 暂时不启用 */
-    int* rstat;              /**< array for storing row basis status *//* 暂时不启用 */
-    int                   cstatsize;          /**< size of cstat array *//* 暂时不启用 */
-    int                   rstatsize;          /**< size of rstat array *//* 暂时不启用 */
+    ScsData*              scsdata;
+    ScsCone*              scscone;
+    ScsSettings*          scsstgs;
+    ScsSolution*          scssol;
+    ScsInfo*              scsinfo;
+    ScsWork*              scswork;            /**< our SCS work structure */
+    int*                  cstat;              /**< array for storing column basis status */
+    int*                  rstat;              /**< array for storing row basis status */
+    int                   cstatsize;          /**< size of cstat array */
+    int                   rstatsize;          /**< size of rstat array */
     // SCIP_PRICING          pricing;            /**< current pricing strategy */
     // SCIP_Bool             solved;             /**< was the current LP solved? */
     //SLUFactor*            factorization;      /**< factorization possibly needed for basis inverse */
     // SCIP_Real             rowrepswitch;       /**< use row representation if number of rows divided by number of columns exceeds this value */
     // SCIP_Real             conditionlimit;     /**< maximum condition number of LP basis counted as stable (-1.0: no limit) */
     // SCIP_Bool             checkcondition;     /**< should condition number of LP basis be checked for stability? */
-    SCIP_MESSAGEHDLR* messagehdlr;        /**< messagehdlr handler to printing messages, or NULL *//* 暂时不启用 */
+    SCIP_MESSAGEHDLR*     messagehdlr;        /**< messagehdlr handler to printing messages, or NULL *//* 暂时不启用 */
     //int                   nrows;              /**< number of rows */
     //int                   ncols;              /**< number of columns */
     SCIP_OBJSEN           objsen;             /**< objective sense */
     const char* name;               /**< problem name */
-    struct SCIP_Columns* columns;
-    struct SCIP_Rows* rows;
+    struct SCIP_Columns*  columns;
+    struct SCIP_Rows*     rows;
+    int                   nconsbycol;
     SCIP_Real             objlim;
     SCIP_Real             feastol;
     SCIP_Real             dualfeastol;
@@ -107,6 +108,17 @@ struct SCIP_LPi
     SCIP_Real             conditionlimit;
     SCIP_Bool             checkcondition;
     SCIP_Real             markowitz;
+    SCIP_Bool             fromscratch;
+    SCIP_Bool             lpinfo;
+    int                   lpitlim;
+    SCIP_Longint          presoving;
+    SCIP_PRICING          pricing;
+    SCIP_Longint          pricer;
+    SCIP_Longint          scaling;
+    SCIP_Longint          timing;
+    SCIP_Longint          randomseed;
+    SCIP_Longint          polishing;
+    SCIP_Longint          refactor;
 };
 
 /** LPi state stores basis information */
@@ -123,7 +135,7 @@ struct SCIP_LPiNorms
 {
     int                   nrows;              /**< number of stored norms corresponding to rows */
     int                   ncols;              /**< number of stored norms corresponding to cols */
-    SCIP_Real* norms;              /**< norms to be (re)stored */
+    SCIP_Real* norms;                         /**< norms to be (re)stored */
 };
 
 /*
@@ -1069,6 +1081,7 @@ SCIP_RETCODE SCIPlpiCreate(
     init_columns(*lpi);
     init_rows(*lpi);
     init_state(*lpi, get_nrows(*lpi), get_ncols(*lpi));
+    (*lpi)->nconsbycol = 0;
     return SCIP_OKAY;
 }
 
@@ -2293,6 +2306,7 @@ SCIP_RETCODE ConstructAMatrix(
     scs_float** CVector;
 
     CombineTwoMatricesByRow(AMatrixOfColumns, AMatrixOfRows, &AMatrix, nvectorCol, nvectorRow, *n);
+    lpi->nconsbycol = nvectorCol;
     debug_print_matrix_real(AMatrix, *m, *n);
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
     debug_print_matrix_real(CVector, *m, 1);
@@ -2417,7 +2431,7 @@ SCIP_RETCODE debug_print_scs_solution(
         SCIPdebugMessage("Dual Solutions:\n");
 	    for (int i = 0; i < get_nrows(lpi); i++)
 	    {
-            SCIPdebugMessage("y[%d]: %8.2f ", i, lpi->scssol->y[i]);
+            SCIPdebugMessage("y[%d]: %8.2f ", i, lpi->scssol->y[i + lpi->nconsbycol]);
 	    }
         SCIPdebugMessage("\n");
     }
@@ -2778,7 +2792,7 @@ SCIP_Bool SCIPlpiIsObjlimExc(
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
     return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED
-	|| lpi->scsinfo->status_val == SCS_UNFINISHED;
+    || lpi->scsinfo->status_val == SCS_UNFINISHED;
 }
 
 /** returns TRUE iff the iteration limit was reached */
@@ -2789,7 +2803,7 @@ SCIP_Bool SCIPlpiIsIterlimExc(
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
     return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED
-	|| lpi->scsinfo->status_val == SCS_UNFINISHED;
+    || lpi->scsinfo->status_val == SCS_UNFINISHED;
 }
 
 /** returns TRUE iff the time limit was reached */
@@ -2800,7 +2814,7 @@ SCIP_Bool SCIPlpiIsTimelimExc(
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
     return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED
-	|| lpi->scsinfo->status_val == SCS_UNFINISHED;
+    || lpi->scsinfo->status_val == SCS_UNFINISHED;
 }
 
 /** returns the internal solution status of the solver */
@@ -2859,10 +2873,38 @@ SCIP_RETCODE SCIPlpiGetSol(
         SCIPlpiGetObjval(lpi, &*objval);
     }
     if (primsol) {
-        *primsol = *lpi->scssol->x;
+        for (int i = 0; i < get_ncols(lpi); i++)
+        {
+            primsol[i] = lpi->scssol->x[i];
+        }
     }
+    /**
+    dualsol = NULL;
+    activity = NULL;
+    redcost = NULL;
+	*/
     if (dualsol) {
-        *dualsol = *lpi->scssol->y;
+        // @TODO 转换方式存疑。
+        /**
+        for (int i = lpi->nconsbycol; i < get_nrows(lpi); i++)
+        {
+            dualsol[i] = lpi->scssol->y[i];
+        }*/
+        dualsol = (SCIP_Real*)calloc(get_nrows(lpi) - lpi->nconsbycol, sizeof(SCIP_Real));
+    }
+    if (activity)
+    {
+	    for (int i = lpi->nconsbycol; i< get_nrows(lpi); i++)
+	    {
+		    
+	    }
+    }
+    if (redcost)
+    {
+        for (int i = 0; i < get_ncols(lpi); i++)
+        {
+            redcost[i] = 0;
+        }
     }
     return SCIP_OKAY;
 }
@@ -2964,7 +3006,7 @@ SCIP_RETCODE SCIPlpiSetBase(
     const int* rstat               /**< array with row basis status */
 )
 {  /*lint --e{715}*/
-    SCIPdebugMessage("calling SCIPlpiGetBase()...\n");
+    SCIPdebugMessage("calling SCIPlpiSetBase()...\n");
     assert(lpi != NULL);
     const int ncols = get_ncols(lpi);
     const int nrows = get_nrows(lpi);
@@ -2986,7 +3028,7 @@ SCIP_RETCODE SCIPlpiSetBase(
             lpi->cstat[i] = cstat[i];
         }
     }
-    return SCIP_PLUGINNOTFOUND;
+    return SCIP_OKAY;
 }
 
 /** returns the indices of the basic columns and rows; basic column n gives value n, basic row m gives value -1-m */
@@ -3180,10 +3222,42 @@ SCIP_RETCODE SCIPlpiSetState(
     const SCIP_LPISTATE* lpistate            /**< LPi state information (like basis information), or NULL */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiSetState()...\n");
+
     assert(lpi != NULL);
-    assert(blkmem != NULL);
+    /** assert(blkmem != NULL); */
     assert(lpistate != NULL);
-    errorMessage();
+
+    int lpncols = get_ncols(lpi);
+    int lpnrows = get_nrows(lpi);
+    assert(lpistate->ncols <= lpncols);
+    assert(lpistate->nrows <= lpnrows);
+    SCIP_CALL(ensureCstatMem(lpi, lpncols));
+    SCIP_CALL(ensureRstatMem(lpi, lpnrows));
+    lpistateUnpack(lpistate, lpi->cstat, lpi->rstat);
+    for (int i = lpistate->ncols; i < lpncols; i++)
+    {
+        SCIP_Real lb = get_column_lower_bound_real(lpi, i);
+        if (SCIPlpiIsInfinity(lpi, REALABS(lb)))
+        {
+            lb = get_column_lower_bound_real(lpi, i);
+            if (SCIPlpiIsInfinity(lpi, REALABS(lb)))
+            {
+                lpi->cstat[i] = SCIP_BASESTAT_ZERO;
+            } else
+            {
+                lpi->cstat[i] = SCIP_BASESTAT_UPPER;
+            }
+        } else
+        {
+            lpi->cstat[i] = SCIP_BASESTAT_LOWER;
+        }
+    }
+    for (int i = lpistate->nrows; i < lpnrows; i++)
+    {
+        lpi->rstat[i] = SCIP_BASESTAT_BASIC;
+    }
+    SCIP_CALL(SCIPlpiSetBase(lpi, lpi->cstat, lpi->rstat));
     return SCIP_OKAY;
 }
 
@@ -3206,6 +3280,10 @@ SCIP_RETCODE SCIPlpiFreeState(
     assert(lpi != NULL);
     assert(lpistate != NULL);
     assert(blkmem != NULL);
+    if (*lpistate != NULL)
+    {
+        lpistateFree(lpistate, blkmem);
+    }
     return SCIP_OKAY;
 }
 
@@ -3268,8 +3346,8 @@ SCIP_RETCODE SCIPlpiGetNorms(
     assert(lpi != NULL);
     assert(blkmem != NULL);
     assert(lpinorms != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    //errorMessage();
+    return SCIP_OKAY;
 }
 
 /** loads LPi pricing norms into solver; note that the LP might have been extended with additional
@@ -3282,8 +3360,8 @@ SCIP_RETCODE SCIPlpiSetNorms(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    //errorMessage();
+    return SCIP_OKAY;
 }
 
 /** frees pricing norms information */
@@ -3294,8 +3372,8 @@ SCIP_RETCODE SCIPlpiFreeNorms(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    //errorMessage();
+    return SCIP_OKAY;
 }
 
 /**@} */
@@ -3319,7 +3397,46 @@ SCIP_RETCODE SCIPlpiGetIntpar(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(ival != NULL);
-    return SCIP_PARAMETERUNKNOWN;
+    switch (type)
+    {
+    case SCIP_LPPAR_FROMSCRATCH:
+        *ival = lpi->fromscratch;
+        break;
+    case SCIP_LPPAR_REFACTOR:
+        *ival = lpi->refactor;
+        break;
+    case SCIP_LPPAR_LPINFO:
+        *ival = lpi->lpinfo;
+        break;
+    case SCIP_LPPAR_LPITLIM:
+        *ival = lpi->lpitlim;
+        /* -1 <= ival, -1 meaning no time limit, 0 stopping immediately */
+        if (*ival == -1)
+            *ival = INT_MAX;
+        break;
+    case SCIP_LPPAR_PRESOLVING:
+        *ival = lpi->presoving;
+        break;
+    case SCIP_LPPAR_PRICING:
+        *ival = (int)lpi->pricing;
+        break;
+    case SCIP_LPPAR_SCALING:
+        *ival = lpi->scaling;
+        break;
+    case SCIP_LPPAR_TIMING:
+        *ival = lpi->timing;
+        break;
+    case SCIP_LPPAR_RANDOMSEED:
+        *ival = lpi->randomseed;
+        break;
+    case SCIP_LPPAR_POLISHING:
+        *ival = lpi->polishing;
+        break;
+    default:
+        return SCIP_PARAMETERUNKNOWN;
+    }  /*lint !e788*/
+
+    return SCIP_OKAY;
 }
 
 /** sets integer parameter of LP */
@@ -3336,38 +3453,46 @@ SCIP_RETCODE SCIPlpiSetIntpar(
     {
     case SCIP_LPPAR_FROMSCRATCH:
         assert(ival == TRUE || ival == FALSE);
-        break;
-    case SCIP_LPPAR_FASTMIP:
-        assert(ival == TRUE || ival == FALSE);
-        break;
-    case SCIP_LPPAR_REFACTOR:
-        assert(ival == TRUE || ival == FALSE);
+        lpi->fromscratch = (SCIP_Bool)ival;
         break;
     case SCIP_LPPAR_LPINFO:
         assert(ival == TRUE || ival == FALSE);
+        lpi->lpinfo = (SCIP_Bool)ival;
         break;
     case SCIP_LPPAR_LPITLIM:
         assert(ival >= 0);
-        /* -1 <= ival, -1 meaning no time limit, 0 stopping immediately */
-        if (ival >= INT_MAX) {
+        if (ival >= INT_MAX)
+        {
             ival = -1;
         }
+        lpi->lpitlim = ival;
         break;
     case SCIP_LPPAR_PRESOLVING:
         assert(ival == TRUE || ival == FALSE);
+        lpi->presoving = ival;
         break;
     case SCIP_LPPAR_PRICING:
+        lpi->pricing = (SCIP_PRICING)ival;
+        // switch (lpi->pricing) : lpi->pricer = ...
         break;
     case SCIP_LPPAR_SCALING:
-        assert(ival == TRUE || ival == FALSE);
+        assert(ival >= 0 && ival <= 2);
+        lpi->scaling = ival;
         break;
     case SCIP_LPPAR_TIMING:
         assert(ival >= 0 && ival < 3);
+        lpi->timing = ival;
         break;
     case SCIP_LPPAR_RANDOMSEED:
+        lpi->randomseed = (unsigned long)ival;
         break;
     case SCIP_LPPAR_POLISHING:
         assert(ival >= 0 && ival < 3);
+        lpi->polishing = ival;
+        break;
+    case SCIP_LPPAR_REFACTOR:
+        assert(ival >= 0);
+        lpi->refactor = ival;
         break;
     default:
         return SCIP_PARAMETERUNKNOWN;

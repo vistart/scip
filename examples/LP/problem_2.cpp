@@ -6,9 +6,12 @@
 #include <scip/scip.h>
 #include <scip/scipdefplugins.h>
 
+#include "scip/set.h"
+
 SCIP_RETCODE execmain(int argc, const char** argv) {
     SCIP* scip = nullptr;
-    SCIP_CALL( SCIPcreate(&scip));
+    SCIP_CALL(SCIPcreate(&scip));
+    SCIP_CALL(SCIPsetBoolParam(scip, "lp/checkdualfeas", FALSE));
     SCIP_CALL(SCIPincludeDefaultPlugins(scip));
     SCIP_CALL(SCIPcreateProbBasic(scip, "SCIP_scs_example"));
     SCIP_CALL(SCIPsetObjsense(scip, SCIP_OBJSENSE_MAXIMIZE));
@@ -59,6 +62,7 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
 
     SCIP_SOL* sol;
     sol = SCIPgetBestSol(scip);
+    std::cout << "The solution(s):" << std::endl;
     std::cout << "x1: " << SCIPgetSolVal(scip, sol, x1) << " "
               << "x2: " << SCIPgetSolVal(scip, sol, x2) << " "
               << "x3: " << SCIPgetSolVal(scip, sol, x3) << " "
