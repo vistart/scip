@@ -157,6 +157,7 @@ void errorMessage(
  /*
   * Miscellaneous Methods
   */
+
   /**
    * 获取指定列的下界，即某个变量的下界。
    * @param lpi 指向线性求解器接口结构体的指针。
@@ -800,6 +801,38 @@ SCIP_RETCODE clear_rows(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE init_state(
+    SCIP_LPI* lpi,
+    int nrows,
+    int ncols
+)
+{
+    assert(lpi != NULL);
+    lpi->cstat = (int*)calloc(get_ncols(lpi), sizeof(int));
+    lpi->rstat = (int*)calloc(get_nrows(lpi), sizeof(int));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE resize_state_rows(
+    SCIP_LPI* lpi,
+    int nrows
+)
+{
+    assert(lpi != NULL);
+    lpi->rstat = realloc(lpi->rstat, nrows * sizeof(int));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE resize_state_columns(
+    SCIP_LPI* lpi,
+    int ncols
+)
+{
+    assert(lpi != NULL);
+    lpi->cstat = realloc(lpi->cstat, ncols * sizeof(int));
+    return SCIP_OKAY;
+}
+
 /**@name Miscellaneous Methods */
 /**@{ */
 
@@ -1023,7 +1056,7 @@ SCIP_RETCODE SCIPlpiCreate(
 #ifdef SCIP_DEBUG
     (*lpi)->scsstgs->verbose = 1;
 #else
-    (*lpi)->scsstgs->verbose = 1;
+    (*lpi)->scsstgs->verbose = 0;
 #endif
 
     /* Modify tolerances */
@@ -1035,6 +1068,7 @@ SCIP_RETCODE SCIPlpiCreate(
     // 初始化列在前，初始化行在后。
     init_columns(*lpi);
     init_rows(*lpi);
+    init_state(*lpi, get_nrows(*lpi), get_ncols(*lpi));
     return SCIP_OKAY;
 }
 
@@ -1581,8 +1615,10 @@ SCIP_RETCODE SCIPlpiChgBounds(
         set_column_lower_bound_real(lpi, ind[i], lb[i]);
         set_column_upper_bound_real(lpi, ind[i], ub[i]);
 #ifdef SCIP_DEBUG
-        SCIPdebugMessage("the lower bound of column[%d]: %8.2f is replaced with %8.2f\n", ind[i], old_lb, get_column_lower_bound_real(lpi, ind[i]));
-        SCIPdebugMessage("the upper bound of column[%d]: %8.2f is replaced with %8.2f\n", ind[i], old_ub, get_column_upper_bound_real(lpi, ind[i]));
+        SCIPdebugMessage("the lower bound of column[%d]: %8.2f is replaced with %8.2f\n",
+            ind[i], old_lb, get_column_lower_bound_real(lpi, ind[i]));
+        SCIPdebugMessage("the upper bound of column[%d]: %8.2f is replaced with %8.2f\n",
+            ind[i], old_ub, get_column_upper_bound_real(lpi, ind[i]));
 #endif
         assert(get_column_lower_bound_real(lpi, ind[i]) <= get_column_upper_bound_real(lpi, ind[i]));
     }
@@ -2349,6 +2385,45 @@ SCIP_RETCODE debug_print_scs_data(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE debug_print_scs_solution(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->scsinfo != NULL);
+    SCIPdebugMessage("Primal objective: [%d]%8.2f\n", lpi->objsen, lpi->scsinfo->pobj);
+    SCIPdebugMessage("Dual objective: [%d]%8.2f\n", lpi->objsen, lpi->scsinfo->dobj);
+    assert(lpi->scssol != NULL);
+    if (lpi->scssol->s)
+    {
+        SCIPdebugMessage("Slack variables:\n");
+	    for (int i = 0; i < get_ncols(lpi); i++)
+	    {
+            SCIPdebugMessage("s[%d]: %8.2f ", i, lpi->scssol->s[i]);
+	    }
+        SCIPdebugMessage("\n");
+    }
+    if (lpi->scssol->x)
+    {
+        SCIPdebugMessage("Primal Solutions:\n");
+	    for (int i = 0; i < get_ncols(lpi); i++)
+	    {
+            SCIPdebugMessage("x[%d]: %8.2f ", i, lpi->scssol->x[i]);
+	    }
+        SCIPdebugMessage("\n");
+    }
+    if (lpi->scssol->y)
+    {
+        SCIPdebugMessage("Dual Solutions:\n");
+	    for (int i = 0; i < get_nrows(lpi); i++)
+	    {
+            SCIPdebugMessage("y[%d]: %8.2f ", i, lpi->scssol->y[i]);
+	    }
+        SCIPdebugMessage("\n");
+    }
+    return SCIP_OKAY;
+}
+
 SCIP_RETCODE scsSolve(
     SCIP_LPI* lpi
 )
@@ -2359,7 +2434,8 @@ SCIP_RETCODE scsSolve(
     lpi->scscone->z = 0;
     lpi->scscone->l = lpi->scsdata->m;
     lpi->scswork = scs_init(lpi->scsdata, lpi->scscone, lpi->scsstgs);
-    int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
+    scs_int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
+    debug_print_scs_solution(lpi);
     scs_finish(lpi->scswork);
     return SCIP_OKAY;
 }
@@ -2533,8 +2609,7 @@ SCIP_Bool SCIPlpiWasSolved(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    errorMessageAbort();
-    return FALSE;
+    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE;
 }
 
 /** gets information about primal and dual feasibility of the current LP solution
@@ -2702,7 +2777,8 @@ SCIP_Bool SCIPlpiIsObjlimExc(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED || lpi->scsinfo->status_val == SCS_UNFINISHED;
+    return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED
+	|| lpi->scsinfo->status_val == SCS_UNFINISHED;
 }
 
 /** returns TRUE iff the iteration limit was reached */
@@ -2712,7 +2788,8 @@ SCIP_Bool SCIPlpiIsIterlimExc(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED || lpi->scsinfo->status_val == SCS_UNFINISHED;
+    return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED
+	|| lpi->scsinfo->status_val == SCS_UNFINISHED;
 }
 
 /** returns TRUE iff the time limit was reached */
@@ -2722,7 +2799,8 @@ SCIP_Bool SCIPlpiIsTimelimExc(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED || lpi->scsinfo->status_val == SCS_UNFINISHED;
+    return lpi->scsinfo->status_val == SCS_SIGINT || lpi->scsinfo->status_val == SCS_FAILED
+	|| lpi->scsinfo->status_val == SCS_UNFINISHED;
 }
 
 /** returns the internal solution status of the solver */
@@ -2754,9 +2832,9 @@ SCIP_RETCODE SCIPlpiGetObjval(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    assert(lpi->scssol != NULL);
+    assert(lpi->scsinfo != NULL);
     assert(objval != NULL);
-    *objval = *lpi->scssol->s;
+    *objval = lpi->objsen == SCIP_OBJSEN_MINIMIZE ? lpi->scsinfo->pobj : -lpi->scsinfo->pobj;
     return SCIP_OKAY;
 }
 
@@ -2775,12 +2853,17 @@ SCIP_RETCODE SCIPlpiGetSol(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
+    assert(lpi->scsinfo != NULL);
     assert(lpi->scssol != NULL);
-    *objval = *lpi->scssol->s;
-    *primsol = *lpi->scssol->x;
-    *dualsol = *lpi->scssol->y;
-    activity = NULL;
-    redcost = NULL;
+    if (objval) {
+        SCIPlpiGetObjval(lpi, &*objval);
+    }
+    if (primsol) {
+        *primsol = *lpi->scssol->x;
+    }
+    if (dualsol) {
+        *dualsol = *lpi->scssol->y;
+    }
     return SCIP_OKAY;
 }
 
@@ -2859,17 +2942,17 @@ SCIP_RETCODE SCIPlpiGetBase(
     assert(lpi != NULL);
     if (rstat != NULL)
     {
-	    for (int i = 0; i < get_nrows(lpi); i++)
-	    {
-		    
-	    }
+        for (int i = 0; i < get_nrows(lpi); i++)
+        {
+            rstat[i] = lpi->rstat[i];
+        }
     }
     if (cstat != NULL)
     {
-	    for (int i = 0; i < get_ncols(lpi); i++)
-	    {
-		    
-	    }
+        for (int i = 0; i < get_ncols(lpi); i++)
+        {
+            cstat[i] = lpi->cstat[i];
+        }
     }
     return SCIP_OKAY;
 }
@@ -2881,10 +2964,28 @@ SCIP_RETCODE SCIPlpiSetBase(
     const int* rstat               /**< array with row basis status */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetBase()...\n");
     assert(lpi != NULL);
-    assert(cstat != NULL);
-    assert(rstat != NULL);
-    errorMessage();
+    const int ncols = get_ncols(lpi);
+    const int nrows = get_nrows(lpi);
+    assert(cstat != NULL || ncols == 0);
+    assert(rstat != NULL || nrows == 0);
+    SCIP_CALL(resize_state_columns(lpi, ncols));
+    SCIP_CALL(resize_state_rows(lpi, nrows));
+    if (rstat != NULL)
+    {
+        for (int i = 0; i < get_nrows(lpi); i++)
+        {
+            lpi->rstat[i] = rstat[i];
+        }
+    }
+    if (cstat != NULL)
+    {
+        for (int i = 0; i < get_ncols(lpi); i++)
+        {
+            lpi->cstat[i] = cstat[i];
+        }
+    }
     return SCIP_PLUGINNOTFOUND;
 }
 
