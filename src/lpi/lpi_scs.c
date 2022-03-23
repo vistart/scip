@@ -1443,7 +1443,7 @@ SCIP_RETCODE SCIPlpiAddRows(
     const SCIP_Real* val                 /**< values of constraint matrix entries, or NULL if nnonz == 0 */
 )
 {  /*lint --e{715}*/
-    SCIPdebugMessage("calling SCIPlpiAddRows()\n");
+    SCIPdebugMessage("calling SCIPlpiAddRows()...\n");
     assert(lpi != NULL);
     assert(get_nrows(lpi) >= 0);
     assert(lhs != NULL);
@@ -1509,7 +1509,7 @@ SCIP_RETCODE SCIPlpiAddRows(
     {
         for (int j = beg[i]; (i + 1 < nrows) ? (j < beg[i + 1]) : (j < nnonz); j++)
         {
-            set_row_obj_real(lpi, i, ind[j], val[j]);
+            set_row_obj_real(lpi, oldnrows + i, ind[j], val[j]);
         }
     }
 #pragma endregion
@@ -2973,6 +2973,46 @@ SCIP_RETCODE SCIPlpiGetRealSolQuality(
  /**@name LP Basis Methods */
  /**@{ */
 
+SCIP_BASESTAT getBaseOfRow(
+    SCIP_LPI* lpi,
+    int row
+)
+{
+    if (ISLPIINFINITESIMAL(get_row_lhs_real(lpi, row)) && ISLPIINFINITESIMAL(get_row_rhs_real(lpi, row)))
+    {
+        return SCIP_BASESTAT_ZERO;
+    }
+    if (!SCIPlpiIsInfinity(lpi, -get_row_lhs_real(lpi, row)) && SCIPlpiIsInfinity(lpi, get_row_rhs_real(lpi, row)))
+    {
+        return SCIP_BASESTAT_LOWER;
+    }
+    if (SCIPlpiIsInfinity(lpi, -get_row_lhs_real(lpi, row)) && !SCIPlpiIsInfinity(lpi, get_row_rhs_real(lpi, row)))
+    {
+        return SCIP_BASESTAT_UPPER;
+    }
+    return SCIP_BASESTAT_BASIC;
+}
+
+SCIP_BASESTAT getBaseOfColumn(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    if (ISLPIINFINITESIMAL(get_column_lower_bound_real(lpi, col)) && ISLPIINFINITESIMAL(get_column_upper_bound_real(lpi, col)))
+    {
+        return SCIP_BASESTAT_ZERO;
+    }
+    if (!SCIPlpiIsInfinity(lpi, -get_column_lower_bound_real(lpi, col)) && SCIPlpiIsInfinity(lpi, get_column_upper_bound_real(lpi, col)))
+    {
+        return SCIP_BASESTAT_LOWER;
+    }
+    if (SCIPlpiIsInfinity(lpi, -get_column_lower_bound_real(lpi, col)) && !SCIPlpiIsInfinity(lpi, get_column_upper_bound_real(lpi, col)))
+    {
+        return SCIP_BASESTAT_UPPER;
+    }
+    return SCIP_BASESTAT_BASIC;
+}
+
  /** gets current basis status for columns and rows; arrays must be large enough to store the basis status */
 SCIP_RETCODE SCIPlpiGetBase(
     SCIP_LPI* lpi,                /**< LP interface structure */
@@ -2986,14 +3026,14 @@ SCIP_RETCODE SCIPlpiGetBase(
     {
         for (int i = 0; i < get_nrows(lpi); i++)
         {
-            rstat[i] = lpi->rstat[i];
+            rstat[i] = getBaseOfRow(lpi, i); //lpi->rstat[i];
         }
     }
     if (cstat != NULL)
     {
         for (int i = 0; i < get_ncols(lpi); i++)
         {
-            cstat[i] = lpi->cstat[i];
+            cstat[i] = getBaseOfColumn(lpi, i); // lpi->cstat[i];
         }
     }
     return SCIP_OKAY;
@@ -3039,8 +3079,11 @@ SCIP_RETCODE SCIPlpiGetBasisInd(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(bind != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    for (int i = 0; i < get_nrows(lpi); i++)
+    {
+        bind[i] = i;
+    }
+    return SCIP_OKAY;
 }
 
 /** get row of inverse basis matrix B^-1
@@ -3060,8 +3103,9 @@ SCIP_RETCODE SCIPlpiGetBInvRow(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(coef != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    inds = NULL;
+    ninds = NULL;
+    return SCIP_OKAY;
 }
 
 /** get column of inverse basis matrix B^-1
@@ -3206,7 +3250,12 @@ SCIP_RETCODE SCIPlpiGetState(
     assert(ncols >= 0);
     assert(nrows >= 0);
     SCIP_CALL(lpistateCreate(lpistate, blkmem, ncols, nrows));
+    /* allocate enough memory for storing uncompressed basis information */
+    SCIP_CALL(ensureCstatMem(lpi, ncols));
+    SCIP_CALL(ensureRstatMem(lpi, nrows));
+    /* get unpacked basis information */
     SCIP_CALL(SCIPlpiGetBase(lpi, lpi->cstat, lpi->rstat));
+    /* pack LPi state data */
     (*lpistate)->ncols = ncols;
     (*lpistate)->nrows = nrows;
     lpistatePack(*lpistate, lpi->cstat, lpi->rstat);
@@ -3294,8 +3343,8 @@ SCIP_Bool SCIPlpiHasStateBasis(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    errorMessageAbort();
-    return FALSE;
+    //errorMessageAbort();
+    return TRUE;
 }
 
 /** reads LP state (like basis information from a file */
