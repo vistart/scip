@@ -883,7 +883,7 @@ SCIP_RETCODE SCIPlpiSetIntegralityInformation(
 )
 { /*lint --e{715}*/
     //SCIPdebugMessage("SCS doesn't support the integrality of variables.\n");
-    SCIPdebugMessage("calling SCIPlpiSetIntegralityInformation().\n");
+    SCIPdebugMessage("calling SCIPlpiSetIntegralityInformation()...\n");
     for (int i = 0; i < ncols; i++)
     {
         set_column_integrality(lpi, i, intInfo[i]);
@@ -1046,7 +1046,7 @@ SCIP_RETCODE SCIPlpiCreate(
 )
 {  /*lint --e{715}*/
     //assert(sizeof(SCIP_REAL) == sizeof(scs_float)); /** 检查 SCIP 实数是否与 scs 实数类型相一致，一致才能计算。 */
-    SCIPdebugMessage("SCIPlpiCreate()\n");
+    SCIPdebugMessage("calling SCIPlpiCreate()...\n");
 
     assert(lpi != NULL);
     assert(name != NULL);
@@ -1090,8 +1090,8 @@ SCIP_RETCODE SCIPlpiFree(
     SCIP_LPI** lpi                 /**< 指向线性求解器接口结构体的指针 */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiFree()...\n");
     assert(lpi != NULL);
-    SCIPdebugMessage("SCIPlpiFree()\n");
 
     /* Free allocated memory */
     free((*lpi)->scscone);
@@ -1137,7 +1137,7 @@ SCIP_RETCODE SCIPlpiLoadColLP(
     const SCIP_Real* val                 /**< values of constraint matrix entries */
 )
 {  /*lint --e{715}*/
-
+    SCIPdebugMessage("calling SCIPlpiLoadColLP()...\n");
 #ifndef NDEBUG
     {
         SCIPdebugMessage("SCIPlpiLoadColLP:\n");
@@ -1237,6 +1237,7 @@ SCIP_RETCODE SCIPlpiAddCols(
     const SCIP_Real* val       /**< values of constraint matrix entries, or NULL if nnonz == 0 */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiAddCols()...\n");
     assert(lpi != NULL);
     assert(get_ncols(lpi) >= 0);
     assert(obj != NULL);
@@ -1326,6 +1327,7 @@ SCIP_RETCODE SCIPlpiDelCols(
     int                   lastcol             /**< last column to be deleted */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiDelCols()...\n");
     assert(lpi != NULL);
     assert(get_ncols(lpi) >= 0);
 
@@ -1357,6 +1359,7 @@ SCIP_RETCODE SCIPlpiDelColset(
                                           *   output: new position of column, -1 if column was deleted */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiDelColset()...\n");
     int cnt = 0;
 
     assert(lpi != NULL);
@@ -1526,6 +1529,7 @@ SCIP_RETCODE SCIPlpiDelRows(
     int                   lastrow             /**< last row to be deleted */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiDelRows()...\n");
     assert(lpi != NULL);
     assert(get_nrows(lpi) >= 0);
 
@@ -1554,6 +1558,7 @@ SCIP_RETCODE SCIPlpiDelRowset(
                                           *   output: new position of row, -1 if row was deleted */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiDelRowset()...\n");
     int cnt = 0;
 
     assert(lpi != NULL);
@@ -1584,6 +1589,7 @@ SCIP_RETCODE SCIPlpiClear(
     SCIP_LPI* lpi                 /**< LP interface structure */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiClear()...\n");
     assert(lpi != NULL);
     assert(get_nrows(lpi) >= 0);
     assert(get_ncols(lpi) >= 0);
@@ -1602,7 +1608,7 @@ SCIP_RETCODE SCIPlpiChgBounds(
     const SCIP_Real* ub                  /**< values for the new upper bounds or NULL if ncols is zero */
 )
 {  /*lint --e{715}*/
-
+    SCIPdebugMessage("calling SCIPlpiChgBounds()...\n");
     assert(ncols == 0 || (ind != NULL && lb != NULL && ub != NULL));
 
     if (ncols <= 0) {
@@ -1647,10 +1653,32 @@ SCIP_RETCODE SCIPlpiChgSides(
     const SCIP_Real* rhs                 /**< new values for right hand sides */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiChgSides()...\n");
     assert(lpi != NULL);
     assert(ind != NULL);
     assert(lhs != NULL);
     assert(rhs != NULL);
+    if (nrows <= 0)
+    {
+        return SCIP_OKAY;
+    }
+    for (int i = 0; i < nrows; i++)
+    {
+        assert(0 <= ind[i] && ind[i] < get_nrows(lpi));
+#ifdef SCIP_DEBUG
+        SCIP_Real old_lhs = get_row_lhs_real(lpi, ind[i]);
+        SCIP_Real old_rhs = get_row_rhs_real(lpi, ind[i]);
+#endif
+        set_row_lhs_real(lpi, ind[i], lhs[i]);
+        set_row_rhs_real(lpi, ind[i], rhs[i]);
+#ifdef SCIP_DEBUG
+        SCIPdebugMessage("the lhs of row[%d]: %8.2f is replaced with %8.2f\n", ind[i], old_lhs,
+            get_row_lhs_real(lpi, ind[i]));
+        SCIPdebugMessage("the rhs of row[%d]: %8.2f is replaced with %8.2f\n", ind[i], old_rhs,
+            get_row_rhs_real(lpi, ind[i]));
+#endif
+        assert(get_row_lhs_real(lpi, ind[i]) <= get_row_rhs_real(lpi, ind[i]));
+    }
     return SCIP_OKAY;
 }
 
@@ -1662,8 +1690,11 @@ SCIP_RETCODE SCIPlpiChgCoef(
     SCIP_Real             newval              /**< new value of coefficient */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiChgCoef()...\n");
     assert(lpi != NULL);
-    return SCIP_OKAY;
+    assert(0 <= row && row < get_nrows(lpi));
+    assert(0 <= col && col < get_ncols(lpi));
+    return set_row_obj_real(lpi, row, col, newval);
 }
 
 /** changes the objective sense */
@@ -1672,7 +1703,9 @@ SCIP_RETCODE SCIPlpiChgObjsen(
     SCIP_OBJSEN           objsen              /**< new objective sense */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiChgObjsen()...\n");
     assert(lpi != NULL);
+    lpi->objsen = objsen;
     return SCIP_OKAY;
 }
 
@@ -1684,9 +1717,15 @@ SCIP_RETCODE SCIPlpiChgObj(
     const SCIP_Real* obj                 /**< new objective values for columns */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiChgObj()...\n");
     assert(lpi != NULL);
     assert(ind != NULL);
     assert(obj != NULL);
+    for (int i = 0; i < ncols; i++)
+    {
+        assert(0 <= ind[i] && ind[i] < get_ncols(lpi));
+        set_column_obj_real(lpi, ind[i], obj[i]);
+    }
     return SCIP_OKAY;
 }
 
@@ -1697,6 +1736,7 @@ SCIP_RETCODE SCIPlpiScaleRow(
     SCIP_Real             scaleval            /**< scaling multiplier */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiScaleRow()...\n");
     assert(lpi != NULL);
     return SCIP_OKAY;
 }
@@ -1710,6 +1750,7 @@ SCIP_RETCODE SCIPlpiScaleCol(
     SCIP_Real             scaleval            /**< scaling multiplier */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiScaleCol()...\n");
     assert(lpi != NULL);
     return SCIP_OKAY;
 }
@@ -1732,6 +1773,7 @@ SCIP_RETCODE SCIPlpiGetNRows(
     int* nrows               /**< pointer to store the number of rows */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetNRows()...\n");
     assert(lpi != NULL);
     assert(nrows != NULL);
     assert(get_nrows(lpi) >= 0);
@@ -1747,6 +1789,7 @@ SCIP_RETCODE SCIPlpiGetNCols(
     int* ncols               /**< pointer to store the number of cols */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetNCols()...\n");
     assert(lpi != NULL);
     assert(ncols != NULL);
     assert(get_ncols(lpi) >= 0);
@@ -1762,6 +1805,7 @@ SCIP_RETCODE SCIPlpiGetNNonz(
     int* nnonz               /**< pointer to store the number of nonzeros */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetNNonz()...\n");
     assert(nnonz != NULL);
     assert(lpi != NULL);
     assert(lpi->scsdata != NULL);
@@ -1825,13 +1869,18 @@ SCIP_RETCODE SCIPlpiGetColNames(
                                            or NULL if namestoragesize is zero */
 )
 { /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetColNames()...\n");
     assert(lpi != NULL);
     assert(colnames != NULL || namestoragesize == 0);
     assert(namestorage != NULL || namestoragesize == 0);
     assert(namestoragesize >= 0);
     assert(storageleft != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    assert(firstcol <= lastcol);
+    for (int i = firstcol; i <= lastcol; i++)
+    {
+        strcpy(colnames[i], get_column_name(lpi, i));
+    }
+    return SCIP_OKAY;
 }
 
 /** gets row names */
@@ -1848,13 +1897,18 @@ SCIP_RETCODE SCIPlpiGetRowNames(
                                            or NULL if namestoragesize is zero */
 )
 { /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetRowNames()...\n");
     assert(lpi != NULL);
     assert(rownames != NULL || namestoragesize == 0);
     assert(namestorage != NULL || namestoragesize == 0);
     assert(namestoragesize >= 0);
     assert(storageleft != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    assert(firstrow <= lastrow);
+    for (int i = firstrow; i <= lastrow; i++)
+    {
+        strcpy(rownames[i], get_row_name(lpi, i));
+    }
+    return SCIP_OKAY;
 }
 
 /** gets the objective sense of the LP */
@@ -1863,8 +1917,10 @@ SCIP_RETCODE SCIPlpiGetObjsen(
     SCIP_OBJSEN* objsen              /**< pointer to store objective sense */
 )
 {  /*lint --e{715}*/
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    SCIPdebugMessage("calling SCIPlpiGetObjsen()...\n");
+    assert(lpi != NULL);
+    *objsen = lpi->objsen;
+    return SCIP_OKAY;
 }
 
 /**
@@ -1882,6 +1938,7 @@ SCIP_RETCODE SCIPlpiGetObj(
     SCIP_Real* vals
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetObj()...\n");
     assert(lpi != NULL);
     assert(0 <= firstcol && firstcol <= lastcol && lastcol < get_ncols(lpi));
     assert(vals != NULL);
@@ -1909,6 +1966,7 @@ SCIP_RETCODE SCIPlpiGetBounds(
     SCIP_Real* ubs
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetBounds()...\n");
     assert(lpi != NULL);
     assert(0 <= firstcol && firstcol <= lastcol && lastcol < get_ncols(lpi));
     for (int i = firstcol; i <= lastcol; i++)
@@ -1934,10 +1992,21 @@ SCIP_RETCODE SCIPlpiGetSides(
     SCIP_Real* rhss                /**< array to store right hand side values, or NULL */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetSides()...\n");
     assert(lpi != NULL);
-    assert(firstrow <= lastrow);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    assert(0 <= firstrow && firstrow <= lastrow && lastrow < get_nrows(lpi));
+    for (int i = firstrow; i <= lastrow; i++)
+    {
+	    if (lhss != NULL)
+	    {
+            lhss[i - firstrow] = get_row_lhs_real(lpi, i);
+	    }
+        if (rhss != NULL)
+        {
+            rhss[i - firstrow] = get_row_rhs_real(lpi, i);
+        }
+    }
+    return SCIP_OKAY;
 }
 
 /** gets a single coefficient */
@@ -1948,10 +2017,13 @@ SCIP_RETCODE SCIPlpiGetCoef(
     SCIP_Real* val                 /**< pointer to store the value of the coefficient */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetCoef()...\n");
     assert(lpi != NULL);
     assert(val != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    assert(0 <= col && col < get_ncols(lpi));
+    assert(0 <= row && row < get_nrows(lpi));
+    *val = get_row_obj_real(lpi, row, col);
+    return SCIP_OKAY;
 }
 
 /**@} */
