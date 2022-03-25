@@ -514,6 +514,15 @@ SCIP_RETCODE init_columns(
     {
         free(lpi->columns);
     }*/
+    if (lpi->columns != NULL && lpi->columns->ncols > 0 && lpi->columns->columns_ptr != NULL)
+    {
+        for (int i = 0; i < lpi->columns->ncols; i++)
+        {
+            free(lpi->columns->columns_ptr[i]);
+        }
+        free(lpi->columns->columns_ptr);
+        free(lpi->columns);
+    }
     lpi->columns = (struct SCIP_Columns*)calloc(sizeof(struct SCIP_Columns), 1);
     lpi->columns->columns_ptr = NULL;
     lpi->columns->ncols = 0;
@@ -539,7 +548,7 @@ SCIP_RETCODE clear_columns(
     {
         free_column(lpi, i);
     }
-    init_columns(lpi);
+    free(lpi->columns);
     return SCIP_OKAY;
 }
 
@@ -790,6 +799,15 @@ SCIP_RETCODE init_rows(
 )
 {
     assert(lpi != NULL);
+    if (lpi->rows != NULL && lpi->rows->nrows > 0 && lpi->rows->rows_ptr != NULL)
+    {
+        for (int i = 0; i < lpi->rows->nrows; i++)
+        {
+            free_row(lpi, i);
+        }
+        free(lpi->rows->rows_ptr);
+        free(lpi->rows);
+    }
     lpi->rows = (struct SCIP_Rows*)calloc(sizeof(struct SCIP_Rows), 1);
     lpi->rows->rows_ptr = NULL;
     lpi->rows->nrows = 0;
@@ -809,7 +827,7 @@ SCIP_RETCODE clear_rows(
     {
         free_row(lpi, i);
     }
-    init_rows(lpi);
+    free(lpi->rows);
     return SCIP_OKAY;
 }
 
@@ -820,8 +838,20 @@ SCIP_RETCODE init_state(
 )
 {
     assert(lpi != NULL);
-    lpi->cstat = (int*)calloc(get_ncols(lpi), sizeof(int));
-    lpi->rstat = (int*)calloc(get_nrows(lpi), sizeof(int));
+    if (lpi->cstatsize > 0 && lpi->cstat != NULL)
+    {
+        free(lpi->cstat);
+        lpi->cstatsize = 0;
+    }
+    if (lpi->rstatsize > 0 && lpi->rstat != NULL)
+    {
+        free(lpi->rstat);
+        lpi->rstatsize = 0;
+    }
+    lpi->cstatsize = get_ncols(lpi);
+    lpi->cstat = (int*)calloc(lpi->cstatsize, sizeof(int));
+    lpi->rstatsize = get_nrows(lpi);
+    lpi->rstat = (int*)calloc(lpi->rstatsize, sizeof(int));
     return SCIP_OKAY;
 }
 
@@ -832,6 +862,7 @@ SCIP_RETCODE resize_state_rows(
 {
     assert(lpi != NULL);
     lpi->rstat = realloc(lpi->rstat, nrows * sizeof(int));
+    lpi->rstatsize = nrows;
     return SCIP_OKAY;
 }
 
@@ -842,6 +873,7 @@ SCIP_RETCODE resize_state_columns(
 {
     assert(lpi != NULL);
     lpi->cstat = realloc(lpi->cstat, ncols * sizeof(int));
+    lpi->cstatsize = ncols;
     return SCIP_OKAY;
 }
 
@@ -1080,6 +1112,8 @@ SCIP_RETCODE SCIPlpiCreate(
     // 初始化列在前，初始化行在后。
     init_columns(*lpi);
     init_rows(*lpi);
+    (*lpi)->cstatsize = 0;
+    (*lpi)->rstatsize = 0;
     init_state(*lpi, get_nrows(*lpi), get_ncols(*lpi));
     (*lpi)->nconsbycol = 0;
     return SCIP_OKAY;
@@ -1094,15 +1128,22 @@ SCIP_RETCODE SCIPlpiFree(
     assert(lpi != NULL);
 
     /* Free allocated memory */
-    free((*lpi)->scscone);
-    free((*lpi)->scsdata);
-    free((*lpi)->scsstgs);
-    free((*lpi)->scsinfo);
+    BMSfreeMemoryArrayNull(&(*lpi)->scscone->s);
+    BMSfreeMemoryArrayNull(&(*lpi)->scscone->bl);
+    BMSfreeMemoryArrayNull(&(*lpi)->scscone->bu);
+    BMSfreeMemory(&((*lpi)->scscone));
+    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A);
+    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->P);
+    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->b);
+    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->c);
+    BMSfreeMemory(&((*lpi)->scsdata));
+    BMSfreeMemory(&((*lpi)->scsstgs));
+    BMSfreeMemory(&((*lpi)->scsinfo));
     /* SCS allocates sol->x,y,s if NULL on entry, need to be freed */
-    free((*lpi)->scssol->x);
-    free((*lpi)->scssol->y);
-    free((*lpi)->scssol->s);
-    free((*lpi)->scssol);
+    BMSfreeMemoryArrayNull(&(*lpi)->scssol->x);
+    BMSfreeMemoryArrayNull(&(*lpi)->scssol->y);
+    BMSfreeMemoryArrayNull(&(*lpi)->scssol->s);
+    BMSfreeMemory(&((*lpi)->scssol));
 
     BMSfreeMemory(lpi);
 
@@ -2360,16 +2401,16 @@ SCIP_RETCODE ConstructAMatrix(
     assert(AMatrixOfColumns != NULL);
     assert(CVectorOfColumns != NULL);
 
-    debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
-    debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
+    //debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
+    //debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
 
     scs_float** AMatrixOfRows;
     scs_float** CVectorOfRows;
     int nvectorRow = 0;
     ConstructAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows, &nvectorRow);
 
-    debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
-    debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
+    //debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
+    //debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
 
     *m = nvectorCol + nvectorRow;
     *n = get_ncols(lpi);
@@ -2379,9 +2420,9 @@ SCIP_RETCODE ConstructAMatrix(
 
     CombineTwoMatricesByRow(AMatrixOfColumns, AMatrixOfRows, &AMatrix, nvectorCol, nvectorRow, *n);
     lpi->nconsbycol = nvectorCol;
-    debug_print_matrix_real(AMatrix, *m, *n);
+    //debug_print_matrix_real(AMatrix, *m, *n);
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
-    debug_print_matrix_real(CVector, *m, 1);
+    //debug_print_matrix_real(CVector, *m, 1);
 
     CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
 
@@ -2392,25 +2433,70 @@ SCIP_RETCODE ConstructAMatrix(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE MemcpyScsMatrix(
+    ScsMatrix** dest,
+    const ScsMatrix* src
+)
+{
+    if ((*dest) == NULL)
+    {
+        (*dest) = (ScsMatrix*)malloc(sizeof(ScsMatrix));
+    } else
+    {
+        (*dest) = realloc(*dest, sizeof(ScsMatrix));
+    }
+    (*dest)->x = (scs_float*)malloc(sizeof(scs_float) * src->p[src->n]);
+    (*dest)->i = (scs_int*)malloc(sizeof(scs_int) * src->p[src->n]);
+    (*dest)->p = (scs_int*)malloc(sizeof(scs_int) * (src->n + 1));
+    memcpy((*dest)->x, src->x, sizeof(scs_float) * src->p[src->n]);
+    memcpy((*dest)->i, src->i, sizeof(scs_int) * src->p[src->n]);
+    memcpy((*dest)->p, src->p, sizeof(scs_int) * (src->n + 1));
+    (*dest)->m = src->m;
+    (*dest)->n = src->n;
+    return SCIP_OKAY;
+}
+
 SCIP_RETCODE ConstructScsData(
     SCIP_LPI* lpi
 )
 {
     assert(lpi != NULL);
+    int m = 0;
+    int n = 0;
     scs_float* Ax = NULL;
     scs_int* Ai = NULL;
     scs_int* Ap = NULL;
-    int m = 0;
-    int n = 0;
     scs_float* b = NULL;
     scs_float* c = NULL;
     ConstructAMatrix(lpi, &Ax, &Ai, &Ap, &b, &c, &m, &n);
+    lpi->scsdata->b = (scs_float*)malloc(m * sizeof(scs_float));
+    memcpy(lpi->scsdata->b, b, sizeof(scs_float) * m);
+    BMSfreeMemoryArrayNull(&b);
+    lpi->scsdata->c = (scs_float*)malloc(n * sizeof(scs_float));
+    memcpy(lpi->scsdata->c, c, sizeof(scs_float) * n);
+    BMSfreeMemoryArrayNull(&c);
+    lpi->scsdata->m = m;
+    lpi->scsdata->n = n;
     assert(Ax != NULL);
     assert(Ai != NULL);
     assert(Ap != NULL);
+    ScsMatrix A = { Ax, Ai, Ap, m, n };
+    MemcpyScsMatrix(&lpi->scsdata->A, &A);
+    /**
+    lpi->scsdata->A = (ScsMatrix*)calloc(1, sizeof(A));
+    lpi->scsdata->A->x = (scs_float*)malloc(sizeof(scs_float) * Ap[n]);
+    lpi->scsdata->A->i = (scs_int*)malloc(sizeof(scs_int) * Ap[n]);
+    lpi->scsdata->A->p = (scs_int*)malloc(sizeof(scs_int) * (n + 1));
+    memcpy(lpi->scsdata->A->x, A.x, sizeof(scs_float) * Ap[n]);
+    memcpy(lpi->scsdata->A->i, A.i, sizeof(scs_int) * Ap[n]);
+    memcpy(lpi->scsdata->A->p, A.p, sizeof(scs_int) * (n + 1));
+    lpi->scsdata->A->m = m;
+    lpi->scsdata->A->n = n;*/
+    //memcpy(lpi->scsdata->A, &A, sizeof(A));
+    BMSfreeMemoryArrayNull(&Ax);
+    BMSfreeMemoryArrayNull(&Ai);
+    BMSfreeMemoryArrayNull(&Ap);
     
-    lpi->scsdata->m = m;
-    lpi->scsdata->n = n;
     scs_float* Px = NULL;
     scs_int* Pi = NULL;
     scs_int* Pp = NULL;
@@ -2418,14 +2504,14 @@ SCIP_RETCODE ConstructScsData(
     assert(Px != NULL);
     assert(Pi != NULL);
     assert(Pp != NULL);
-    lpi->scsdata->b = b;
-    lpi->scsdata->c = c;
-    ScsMatrix A = { Ax, Ai, Ap, m, n };
-    lpi->scsdata->A = (ScsMatrix*)calloc(1, sizeof(A));
-    memcpy(lpi->scsdata->A, &A, sizeof(A));
     ScsMatrix P = { Px, Pi, Pp, n, n};
+    MemcpyScsMatrix(&lpi->scsdata->P, &P);
+	/**
     lpi->scsdata->P = (ScsMatrix*)calloc(1, sizeof(P));
-    memcpy(lpi->scsdata->P, &P, sizeof(P));
+    memcpy(lpi->scsdata->P, &P, sizeof(P));*/
+    BMSfreeMemoryArrayNull(&Px);
+    BMSfreeMemoryArrayNull(&Pi);
+    BMSfreeMemoryArrayNull(&Pp);
     return SCIP_OKAY;
 }
 
@@ -2516,12 +2602,12 @@ SCIP_RETCODE scsSolve(
 {
     assert(lpi != NULL);
     ConstructScsData(lpi);
-    debug_print_scs_data(lpi);
+    //debug_print_scs_data(lpi);
     lpi->scscone->z = 0;
     lpi->scscone->l = lpi->scsdata->m;
     lpi->scswork = scs_init(lpi->scsdata, lpi->scscone, lpi->scsstgs);
     scs_int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
-    debug_print_scs_solution(lpi);
+    //debug_print_scs_solution(lpi);
     scs_finish(lpi->scswork);
     return SCIP_OKAY;
 }
@@ -3782,8 +3868,8 @@ SCIP_RETCODE SCIPlpiReadLP(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(fname != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    //errorMessage();
+    return SCIP_OKAY;
 }
 
 /** writes LP to a file */
@@ -3793,8 +3879,8 @@ SCIP_RETCODE SCIPlpiWriteLP(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    //errorMessage();
+    return SCIP_OKAY;
 }
 
 /**@} */
