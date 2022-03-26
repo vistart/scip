@@ -25,6 +25,44 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 # clang specific suppressions
 set(ADD_C_AND_CXX_FLAGS ${ADD_C_AND_CXX_FLAGS} -Wno-unknown-warning-option)
 set(ADD_C_FLAGS ${ADD_C_FLAGS} -Wno-initializer-overrides)
+
+if (SCIP_DEBUG STREQUAL on)
+    message(STATUS "SCIP_DEBUG on")
+    add_compile_definitions(SCIP_DEBUG)
+elseif(SCIP_DEBUG STREQUAL more)
+    message(STATUS "SCIP_MORE_DEBUG on")
+    add_compile_definitions(SCIP_DEBUG)
+    add_compile_definitions(SCIP_MORE_DEBUG)
+else()
+    message(STATUS "SCIP_DEBUG off")
+endif()
+
+if (WITH_DEBUG_SOLUTION STREQUAL on)
+    message(STATUS "WITH_DEBUG_SOLUTION on")
+    add_compile_definitions(WITH_DEBUG_SOLUTION)
+else()
+    message(STATUS "WITH_DEBUG_SOLUTION off")
+endif()
+
+if (DETAILED_OUTPUT STREQUAL on)
+    message(STATUS "DETAILED_OUTPUT on")
+    add_compile_definitions(DETAILED_OUTPUT)
+else()
+    message(STATUS "DETAILED_OUTPUT off")
+endif()
+
+if (DEBUG_LEXDUAL STREQUAL on)
+    message(STATUS "DEBUG_LEXDUAL on")
+    add_compile_definitions(DEBUG_LEXDUAL)
+else()
+    message(STATUS "DEBUG_LEXDUAL off")
+endif()
+
+if(PROBLEM_DEBUG STREQUAL on)
+    message(STATUS "PROBLEM_DEBUG on")
+    add_compile_definitions(PROBLEM_DEBUG)
+else()
+    message(STATUS "PROBLEM_DEBUG off")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
@@ -49,8 +87,8 @@ endif()
 
 set(SCIP_VERSION_MAJOR 8)
 set(SCIP_VERSION_MINOR 0)
-set(SCIP_VERSION_PATCH 1)
-set(SCIP_VERSION_SUB 0)
+set(SCIP_VERSION_PATCH 0)
+set(SCIP_VERSION_SUB 2)
 set(SCIP_VERSION_API 104)
 
 get_directory_property(hasParent PARENT_DIRECTORY)
@@ -98,10 +136,10 @@ option(ZLIB "should zlib be linked" ON)
 option(READLINE "should readline be linked" ON)
 option(GMP "should gmp be linked" ON)
 option(STATIC_GMP "prefer static gmp library" OFF)
-option(PAPILO "should papilo library be linked" ON)
+option(PAPILO "should papilo library be linked" OFF)
 option(ZIMPL "should zimpl be linked" ON)
 option(AMPL "should ampl interface be compiled" ON)
-option(IPOPT "should ipopt be linked" ON)
+option(IPOPT "should ipopt be linked" OFF)
 option(WORHP "should worhp be linked" OFF)
 # for backward compability
 option(PARASCIP "should scip be compiled thread safe (deprecated, use THREADSAFE)" OFF)
@@ -127,8 +165,8 @@ set_property(CACHE TPI PROPERTY STRINGS none tny omp)  #define list of values GU
 set(EXPRINT cppad CACHE STRING "options for expression interpreter")  #create the variable
 set_property(CACHE EXPRINT PROPERTY STRINGS none cppad )  #define list of values GUI will offer for the variable
 
-set(LPS spx CACHE STRING "options for LP solver")  #create the variable
-set_property(CACHE LPS PROPERTY STRINGS spx cpx grb xprs clp glop msk qso none )  #define list of values GUI will offer for the variable
+set(LPS scs CACHE STRING "options for LP solver")  #create the variable
+set_property(CACHE LPS PROPERTY STRINGS scs scs_cpp spx cpx grb xprs clp glop msk qso none )  #define list of values GUI will offer for the variable
 
 set(SYM bliss CACHE STRING "options for symmetry computation")  #create the variable
 set_property(CACHE SYM PROPERTY STRINGS bliss none )  #define list of values GUI will offer for the variable
@@ -312,7 +350,13 @@ endif()
 
 #search the selected LP solver library
 message(STATUS "Finding Solver \"${LPS}\"")
-if(LPS STREQUAL "spx")
+if(LPS STREQUAL "scs")
+    message(STATUS "Finding scs")
+    find_package(scs REQUIRED)
+elseif(LPS STREQUAL "scs_cpp")
+    message(STATUS "Finding scs in cpp")
+    find_package(scs REQUIRED)
+elseif(LPS STREQUAL "spx")
     message(STATUS "Finding Soplex")
     find_package(SOPLEX REQUIRED CONFIG HINTS ${SOPLEX_DIR})
     if(LPSCHECK)
@@ -345,6 +389,27 @@ else()
 endif()
 
 #setup the proper lpi file for the selected LP solver
+if(scs_FOUND)
+    if(LPS STREQUAL "scs")
+        message(STATUS "Finding scs - found")
+    elseif(LPS STREQUAL "scs_cpp")
+        message(STATUS "Finding scs in cpp - found")
+    endif()
+    include_directories(${scs_INCLUDE_DIRS})
+    set(LPS_LIBRARIES ${scs_LIBRARIES})
+    set(LPS_PIC_LIBRARIES ${scs_LIBRARIES})
+    message(STATUS "scs_INCLUDE_DIRS: ${scs_INCLUDE_DIRS}")
+    message(STATUS "scs_LIBRARIES: ${scs_LIBRARIES}")
+    message(STATUS "LPS_LIBRARIES: ${LPS_LIBRARIES}")
+    message(STATUS "LPS_PIC_LIBRARIES: ${LPS_PIC_LIBRARIES}")
+    if(LPS STREQUAL "scs")
+        set(lpi lpi/lpi_scs.c)
+    elseif(LPS STREQUAL "scs_cpp")
+        set(lpi lpi/lpi_scs.cpp)
+    endif()
+else()
+    message(STATUS "Support SCS: OFF")
+endif()
 if(SOPLEX_FOUND)
     message(STATUS "Finding SOPLEX - found")
     # SoPlex headers can be directly included
