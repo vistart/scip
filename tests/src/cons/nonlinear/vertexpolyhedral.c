@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*    Copyright (C) 2002-2020 Konrad-Zuse-Zentrum                            */
+/*    Copyright (C) 2002-2022 Konrad-Zuse-Zentrum                            */
 /*                            fuer Informationstechnik Berlin                */
 /*                                                                           */
 /*  SCIP is distributed under the terms of the ZIB Academic License.         */
@@ -55,12 +55,12 @@ SCIP_RETCODE printMatrix(int size)
 
    SCIP_CALL( SCIPcreate(&scip) );
 
-   cr_redirect_stdout();
    SCIP_CALL( buildVertexPolyhedralSeparationLP(scip, size, &lp) );
 
    SCIP_CALL( SCIPlpiGetNRows(lp, &nrows) );
    SCIP_CALL( SCIPlpiGetNCols(lp, &ncols) );
 
+   cr_redirect_stdout();
    for( i = 0; i < nrows; ++i )
    {
       for( j = 0; j < ncols; ++j )

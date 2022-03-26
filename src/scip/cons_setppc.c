@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*    Copyright (C) 2002-2021 Konrad-Zuse-Zentrum                            */
+/*    Copyright (C) 2002-2022 Konrad-Zuse-Zentrum                            */
 /*                            fuer Informationstechnik Berlin                */
 /*                                                                           */
 /*  SCIP is distributed under the terms of the ZIB Academic License.         */
@@ -8383,6 +8383,8 @@ SCIP_DECL_CONSPRESOL(consPresolSetppc)
 
       /* remember the number of fixings */
       conshdlrdata->noldfixedvars = *nfixedvars + *naggrvars;
+
+      conshdlrdata->enablecliquelifting = FALSE;
    }
 
    if( oldndelconss == *ndelconss && (presoltiming & SCIP_PRESOLTIMING_EXHAUSTIVE) != 0 )
@@ -8431,7 +8433,6 @@ SCIP_DECL_CONSPRESOL(consPresolSetppc)
    if( cutoff )
       *result = SCIP_CUTOFF;
 
-   conshdlrdata->enablecliquelifting = FALSE;
    conshdlrdata->noldupgrs = nconss - (*ndelconss - startdelconss);
 
    return SCIP_OKAY;

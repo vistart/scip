@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*    Copyright (C) 2002-2021 Konrad-Zuse-Zentrum                            */
+/*    Copyright (C) 2002-2022 Konrad-Zuse-Zentrum                            */
 /*                            fuer Informationstechnik Berlin                */
 /*                                                                           */
 /*  SCIP is distributed under the terms of the ZIB Academic License.         */
@@ -28,6 +28,9 @@
  *       MSK_SOL_STA_NEAR_PRIM_FEAS, MSK_SOL_STA_NEAR_DUAL_FEAS.
  * @todo Check why it can happen that the termination code is MSK_RES_OK, but the solution status is MSK_SOL_STA_UNKNOWN.
  */
+
+/*lint -e750*/
+/*lint -e830*/
 
 #include <assert.h>
 
@@ -729,7 +732,14 @@ SCIP_RETCODE setbase(
  * Miscellaneous Methods
  */
 
-static char mskname[100];
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
+#if MSK_VERSION_MAJOR < 9
+   #define mskname "MOSEK " STR(MSK_VERSION_MAJOR) "." STR(MSK_VERSION_MINOR) "." STR(MSK_VERSION_BUILD) "." STR(MSK_VERSION_REVISION)
+#else
+   #define mskname "MOSEK " STR(MSK_VERSION_MAJOR) "." STR(MSK_VERSION_MINOR) "." STR(MSK_VERSION_REVISION)
+#endif
 
 /**@name Miscellaneous Methods */
 /**@{ */
@@ -739,11 +749,6 @@ const char* SCIPlpiGetSolverName(
    void
    )
 {
-#if MSK_VERSION_MAJOR < 9
-   (void) snprintf(mskname, 100, "MOSEK %d.%d.%d.%d", MSK_VERSION_MAJOR, MSK_VERSION_MINOR, MSK_VERSION_BUILD, MSK_VERSION_REVISION);
-#else
-   (void) snprintf(mskname, 100, "MOSEK %d.%d.%d", MSK_VERSION_MAJOR, MSK_VERSION_MINOR, MSK_VERSION_REVISION);
-#endif
    return mskname;
 }
 
@@ -2434,36 +2439,6 @@ SCIP_RETCODE SolveWSimplex(
          /* solve again with barrier */
          SCIP_CALL( SCIPlpiSolveBarrier(lpi, TRUE) );
       }
-      else
-      {
-         scipmskobjsen objsen;
-         double bound;
-
-         MOSEK_CALL( MSK_getobjsense(lpi->task, &objsen) );
-
-         if (objsen == MSK_OBJECTIVE_SENSE_MINIMIZE)
-         {
-            MOSEK_CALL( MSK_getdouparam(lpi->task, MSK_DPAR_UPPER_OBJ_CUT, &bound) );
-
-            if (1.0e-6*(fabs(bound) + fabs(dobj)) < bound-dobj)
-            {
-               SCIPerrorMessage("[%d] Terminated on obj range, dobj = %g, bound = %g\n", lpi->optimizecount, dobj, bound);
-
-               SCIP_CALL( SCIPlpiSolveBarrier(lpi, TRUE) );
-            }
-         }
-         else /* objsen == MSK_OBJECTIVE_SENSE_MAX */
-         {
-            MOSEK_CALL( MSK_getdouparam(lpi->task, MSK_DPAR_LOWER_OBJ_CUT, &bound) );
-
-            if (1.0e-6*(fabs(bound) + fabs(dobj)) < dobj-bound)
-            {
-               SCIPerrorMessage("[%d] Terminated on obj range, dobj = %g, bound = %g\n", lpi->optimizecount, dobj, bound);
-
-               SCIP_CALL( SCIPlpiSolveBarrier(lpi, TRUE) );
-            }
-         }
-      }
    }
 
    /* if the simplex took too many iterations, solve again with barrier */
@@ -3618,9 +3593,18 @@ SCIP_RETCODE SCIPlpiGetObjval(
 
    SCIPdebugMessage("Calling SCIPlpiGetObjval (%d)\n", lpi->lpid);
 
-   MOSEK_CALL( MSK_getprimalobj(lpi->task, lpi->lastsolvetype, objval) );
-
    /* TODO: tjek lighed med dual objektiv i de fleste tilfaelde. */
+
+   if ( lpi->termcode == MSK_RES_TRM_OBJECTIVE_RANGE )
+   {
+      /* if we reached the objective limit, return this value */
+      MOSEK_CALL( MSK_getdouparam(lpi->task, MSK_DPAR_UPPER_OBJ_CUT, objval) );
+   }
+   else
+   {
+      /* otherwise get the value from Mosek */
+      MOSEK_CALL( MSK_getprimalobj(lpi->task, lpi->lastsolvetype, objval) );
+   }
 
    return SCIP_OKAY;
 }
@@ -3652,7 +3636,16 @@ SCIP_RETCODE SCIPlpiGetSol(
 
    if ( objval != NULL )
    {
-      MOSEK_CALL( MSK_getprimalobj(lpi->task, lpi->lastsolvetype, objval) );
+      if ( lpi->termcode == MSK_RES_TRM_OBJECTIVE_RANGE )
+      {
+         /* if we reached the objective limit, return this value */
+         MOSEK_CALL( MSK_getdouparam(lpi->task, MSK_DPAR_UPPER_OBJ_CUT, objval) );
+      }
+      else
+      {
+         /* otherwise get the value from Mosek */
+         MOSEK_CALL( MSK_getprimalobj(lpi->task, lpi->lastsolvetype, objval) );
+      }
    }
 
    if( redcost )

@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*    Copyright (C) 2002-2020 Konrad-Zuse-Zentrum                            */
+/*    Copyright (C) 2002-2022 Konrad-Zuse-Zentrum                            */
 /*                            fuer Informationstechnik Berlin                */
 /*                                                                           */
 /*  SCIP is distributed under the terms of the ZIB Academic License.         */
@@ -443,8 +443,15 @@ DECL_CURVCHECK(curvCheckQuadratic)
       }
       else
       {
-         /* linear term (or term to be considered as linear) */
-         SCIPexprSetCurvature(child, SCIP_EXPRCURV_LINEAR);
+         /* linear term (or term to be considered as linear) or lonely square term
+          * if we want extended formulations, then require linearity, so an auxvar will be introduced if it is nonlinear
+          * if we do not want extended formulations, then the term needs to have curvature "wantedcurv"
+          *   thus, if the coef is negative, then the child needs to have the curvature opposite to "wantedcurv"
+          */
+         if( nlhdlrdata->extendedform )
+            SCIPexprSetCurvature(child, SCIP_EXPRCURV_LINEAR);
+         else
+            SCIPexprSetCurvature(child, SCIPexprcurvMultiply(SCIPgetCoefsExprSum(nlexpr)[i], wantedcurv));
          SCIP_CALL( exprstackPush(scip, stack, 1, &child) );
       }
    }

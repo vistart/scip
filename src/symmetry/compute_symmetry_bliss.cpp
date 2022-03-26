@@ -3,7 +3,7 @@
 /*                  This file is part of the program and library             */
 /*         SCIP --- Solving Constraint Integer Programs                      */
 /*                                                                           */
-/*    Copyright (C) 2002-2021 Konrad-Zuse-Zentrum                            */
+/*    Copyright (C) 2002-2022 Konrad-Zuse-Zentrum                            */
 /*                            fuer Informationstechnik Berlin                */
 /*                                                                           */
 /*  SCIP is distributed under the terms of the ZIB Academic License.         */
@@ -41,6 +41,7 @@
 #include "scip/cons_linear.h"
 
 using std::vector;
+
 
 /** struct for bliss callback */
 struct BLISS_Data
@@ -951,17 +952,27 @@ SCIP_Bool SYMcanComputeSymmetry(void)
    return TRUE;
 }
 
-/** static variable for holding the name of bliss */
-static char blissname[100];
+char*
+initStaticBlissName( );
 
-/** return name of external program used to compute generators */
-const char* SYMsymmetryGetName(void)
+static char* blissname = initStaticBlissName();
+
+char*
+initStaticBlissName( )
 {
+   blissname = new char[100];
 #ifdef BLISS_PATCH_PRESENT
    (void) snprintf(blissname, 100, "bliss %sp", bliss::version);
 #else
    (void) snprintf(blissname, 100, "bliss %s", bliss::version);
 #endif
+   return blissname;
+}
+
+
+/** return name of external program used to compute generators */
+const char* SYMsymmetryGetName(void)
+{
    return blissname;
 }
 
