@@ -62,6 +62,10 @@ Known bugs
 *************************
 Features
 --------
+
+- clique lifting in cons_setppc (parameter enablecliquelifting) is only disabled if it has been applied
+- improved curvature check for quadratic expressions when extended formulations are disabled
+
 Performance improvements
 ------------------------
 Examples and applications
@@ -85,9 +89,24 @@ Testing
 Build system
 ------------
 ### Cmake
+
+- avoid warnings about unrecognized compiler warning silencing options when compilation with GCC fails
+- adjust mosek find module to version 9.3
+
 ### Makefile
+
+- avoid warnings about unrecognized compiler warning silencing options when compilation with GCC fails
+
 Fixed bugs
 ----------
+
+- fixed uninitialized array in detection of suborbitopes
+- Fixed problem with reading long lines in LP/FZN/OPB/Diff-files. The buffer is now reallocated,
+  which also should be much faster.
+- fixed that recursive products in expressions were sometimes not flattened
+- fixed that expressions in original variables could not be simplified
+- fixed handling of objective limit with Mosek
+
 Miscellaneous
 -------------
 Known bugs
@@ -2449,7 +2468,7 @@ Interface changes
   - methods SCIPrandomCreate() and SCIPrandomFree() are no longer public and should be replaced by SCIPcreateRandom() and
     SCIPfreeRandom(), respectively (the new methods respect the global parameter `randomization/randomseedshift` automatically)
   - methods SCIPdigraphCreate() and SCIPdigraphCopy() are no longer public and should be replaced by SCIPcreateDigraph() and
-    SCIPcopyDigraph(), respectively, which receive a \SCIP argument and are more robust towards future interface changes
+    SCIPcopyDigraph(), respectively, which receive a SCIP argument and are more robust towards future interface changes
 
 - Bilinear:
   - SCIPgetAllBilinearTermsQuadratic() to access data of all existing bilinear terms in quadratic constraints
