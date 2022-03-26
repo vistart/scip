@@ -25,6 +25,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 # clang specific suppressions
 set(ADD_C_AND_CXX_FLAGS ${ADD_C_AND_CXX_FLAGS} -Wno-unknown-warning-option)
 set(ADD_C_FLAGS ${ADD_C_FLAGS} -Wno-initializer-overrides)
+endif()
 
 if (SCIP_DEBUG STREQUAL on)
     message(STATUS "SCIP_DEBUG on")
