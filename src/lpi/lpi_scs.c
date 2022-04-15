@@ -3186,7 +3186,7 @@ SCIP_BASESTAT getBaseOfColumn(
 }
 
  /** gets current basis status for columns and rows; arrays must be large enough to store the basis status */
-SCIP_RETCODE (
+SCIP_RETCODE SCIPlpiGetBase(
     SCIP_LPI* lpi,                /**< LP interface structure */
     int* cstat,              /**< array to store column basis status, or NULL */
     int* rstat               /**< array to store row basis status, or NULL */
