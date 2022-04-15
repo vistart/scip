@@ -69,7 +69,11 @@ if( CRITERION_FOUND )
         if((CMAKE_CXX_COMPILER_ID MATCHES "Intel") AND (${dir} STREQUAL "cons/nonlinear"))
             continue()
         endif()
-
+        
+        if (NOT (${dir} MATCHES "lpi"))
+            continue()
+        endif()
+        message(${dir})
 
         #
         # replace forward slashes by hyphens

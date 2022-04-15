@@ -1353,11 +1353,14 @@ SCIP_RETCODE SCIPlpiAddCols(
         set_column_obj_real(lpi, oldncols + i, obj[i]);
         set_column_lower_bound_real(lpi, oldncols + i, lb[i]);
         set_column_upper_bound_real(lpi, oldncols + i, ub[i]);
-        set_column_name(lpi, oldncols + i, colnames[i]);
+        if (colnames != NULL) {
+            set_column_name(lpi, oldncols + i, colnames[i]);
+        }
     }
 #ifdef SCIP_DEBUG
     debug_print_all_columns(lpi);
 #endif
+    SCIPdebugMessage("calling SCIPlpiAddCols()... done!\n");
     return SCIP_OKAY;
 }
 
@@ -1543,7 +1546,9 @@ SCIP_RETCODE SCIPlpiAddRows(
     for (int i = 0; i < nrows; i++)
     {
         init_row(lpi, oldnrows + i);
-        set_row_name(lpi, oldnrows + i, rownames[i]);
+        if (rownames != NULL) {
+            set_row_name(lpi, oldnrows + i, rownames[i]);
+        }
         set_row_lhs_real(lpi, oldnrows + i, lhs[i]);
         set_row_rhs_real(lpi, oldnrows + i, rhs[i]);
     }
@@ -1557,6 +1562,7 @@ SCIP_RETCODE SCIPlpiAddRows(
         }
     }
 #pragma endregion
+    SCIPdebugMessage("calling SCIPlpiAddRows()... done!\n");
     return SCIP_OKAY;
 }
 

@@ -13,7 +13,7 @@ endif()
 include_directories(${SCIP_INCLUDE_DIRS})
 
 add_executable(lp
-        problem_2.cpp)
+        problem_2.cpp "problem_2.cpp")
 
 target_link_libraries(lp ${SCIP_LIBRARIES})
 
