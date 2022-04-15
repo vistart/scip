@@ -2401,16 +2401,16 @@ SCIP_RETCODE ConstructAMatrix(
     assert(AMatrixOfColumns != NULL);
     assert(CVectorOfColumns != NULL);
 
-    //debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
-    //debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
+    debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
+    debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
 
     scs_float** AMatrixOfRows;
     scs_float** CVectorOfRows;
     int nvectorRow = 0;
     ConstructAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows, &nvectorRow);
 
-    //debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
-    //debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
+    debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
+    debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
 
     *m = nvectorCol + nvectorRow;
     *n = get_ncols(lpi);
@@ -2420,9 +2420,9 @@ SCIP_RETCODE ConstructAMatrix(
 
     CombineTwoMatricesByRow(AMatrixOfColumns, AMatrixOfRows, &AMatrix, nvectorCol, nvectorRow, *n);
     lpi->nconsbycol = nvectorCol;
-    //debug_print_matrix_real(AMatrix, *m, *n);
+    debug_print_matrix_real(AMatrix, *m, *n);
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
-    //debug_print_matrix_real(CVector, *m, 1);
+    debug_print_matrix_real(CVector, *m, 1);
 
     CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
 
@@ -2496,7 +2496,7 @@ SCIP_RETCODE ConstructScsData(
     BMSfreeMemoryArrayNull(&Ax);
     BMSfreeMemoryArrayNull(&Ai);
     BMSfreeMemoryArrayNull(&Ap);
-    
+    /**
     scs_float* Px = NULL;
     scs_int* Pi = NULL;
     scs_int* Pp = NULL;
@@ -2505,13 +2505,15 @@ SCIP_RETCODE ConstructScsData(
     assert(Pi != NULL);
     assert(Pp != NULL);
     ScsMatrix P = { Px, Pi, Pp, n, n};
-    MemcpyScsMatrix(&lpi->scsdata->P, &P);
+    MemcpyScsMatrix(&lpi->scsdata->P, &P);*/
 	/**
     lpi->scsdata->P = (ScsMatrix*)calloc(1, sizeof(P));
     memcpy(lpi->scsdata->P, &P, sizeof(P));*/
+    /**
     BMSfreeMemoryArrayNull(&Px);
     BMSfreeMemoryArrayNull(&Pi);
-    BMSfreeMemoryArrayNull(&Pp);
+    BMSfreeMemoryArrayNull(&Pp);*/
+    lpi->scsdata->P = NULL;
     return SCIP_OKAY;
 }
 
@@ -2525,10 +2527,11 @@ SCIP_RETCODE debug_print_scs_data(
     assert(lpi->scsdata->n > 0);
     assert(lpi->scsdata->A != NULL);
     assert(lpi->scsdata->A->m == lpi->scsdata->m && lpi->scsdata->A->n == lpi->scsdata->n);
-    assert(lpi->scsdata->P != NULL);
-    assert(lpi->scsdata->P->m == lpi->scsdata->n && lpi->scsdata->P->n == lpi->scsdata->n);
+    assert(lpi->scsdata->P == NULL);
+    //assert(lpi->scsdata->P->m == lpi->scsdata->n && lpi->scsdata->P->n == lpi->scsdata->n);
     assert(lpi->scsdata->b != NULL);
     assert(lpi->scsdata->c != NULL);
+    /**
     SCIPdebugMessage("SCSData P matrix:\n");
     scs_int nnonz = lpi->scsdata->P->p[lpi->scsdata->P->n];
     if (nnonz) {
@@ -2540,10 +2543,10 @@ SCIP_RETCODE debug_print_scs_data(
     } else
     {
         SCIPdebugMessage("P matrix is empty.\n");
-    }
+    }*/
 
     SCIPdebugMessage("SCSData A matrix:\n");
-    nnonz = lpi->scsdata->A->p[lpi->scsdata->A->n];
+    scs_int nnonz = lpi->scsdata->A->p[lpi->scsdata->A->n];
     if (nnonz) {
         for (int i = 0; i < nnonz; i++)
         {
@@ -2554,6 +2557,11 @@ SCIP_RETCODE debug_print_scs_data(
     {
         SCIPdebugMessage("A matrix is empty.\n");
     }
+    SCIPdebugMessage("SCSData c vector:\n");
+    for (int i = 0; i < lpi->scsdata->n; i++) {
+        SCIPdebugMessage("%8.2f ", lpi->scsdata->c[i]);
+    }
+    SCIPdebugMessage("\n");
     return SCIP_OKAY;
 }
 
@@ -2602,12 +2610,12 @@ SCIP_RETCODE scsSolve(
 {
     assert(lpi != NULL);
     ConstructScsData(lpi);
-    //debug_print_scs_data(lpi);
+    debug_print_scs_data(lpi);
     lpi->scscone->z = 0;
     lpi->scscone->l = lpi->scsdata->m;
     lpi->scswork = scs_init(lpi->scsdata, lpi->scscone, lpi->scsstgs);
     scs_int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
-    //debug_print_scs_solution(lpi);
+    debug_print_scs_solution(lpi);
     scs_finish(lpi->scswork);
     return SCIP_OKAY;
 }
