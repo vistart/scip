@@ -463,7 +463,7 @@ SCIP_RETCODE resize_columns(
     assert(lpi->columns != NULL);
     if (lpi->columns->columns_ptr == NULL)
     {
-        lpi->columns->columns_ptr = (struct SCIP_Column**)calloc(sizeof(struct SCIP_Column*), newsize);
+        lpi->columns->columns_ptr = (struct SCIP_Column**)calloc(newsize, sizeof(struct SCIP_Column*));
     }
     else if (newsize > 0)
     {
@@ -493,7 +493,7 @@ SCIP_RETCODE init_column(
     {
         free(lpi->columns->columns_ptr[col]);
     }*/
-    lpi->columns->columns_ptr[col] = (struct SCIP_Column*)calloc(sizeof(struct SCIP_Column), 1);
+    lpi->columns->columns_ptr[col] = (struct SCIP_Column*)calloc(1, sizeof(struct SCIP_Column));
     lpi->columns->columns_ptr[col]->intInfo = 0;
     return SCIP_OKAY;
 }
@@ -523,7 +523,7 @@ SCIP_RETCODE init_columns(
         free(lpi->columns->columns_ptr);
         free(lpi->columns);
     }
-    lpi->columns = (struct SCIP_Columns*)calloc(sizeof(struct SCIP_Columns), 1);
+    lpi->columns = (struct SCIP_Columns*)calloc(1, sizeof(struct SCIP_Columns));
     lpi->columns->columns_ptr = NULL;
     lpi->columns->ncols = 0;
     return SCIP_OKAY;
@@ -737,7 +737,7 @@ SCIP_RETCODE resize_rows(
     assert(lpi->rows != NULL);
     if (lpi->rows->rows_ptr == NULL)
     {
-        lpi->rows->rows_ptr = (struct SCIP_Row**)calloc(sizeof(struct SCIP_Row*), newsize);
+        lpi->rows->rows_ptr = (struct SCIP_Row**)calloc(newsize, sizeof(struct SCIP_Row*));
     }
     else if (newsize > 0)
     {
@@ -760,7 +760,7 @@ SCIP_RETCODE free_rowobj(
     {
         free(lpi->rows->rows_ptr[row]->objs);
     }
-    lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(sizeof(SCIP_Real), 0);
+    lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(0, sizeof(SCIP_Real));
     return SCIP_OKAY;
 }
 
@@ -787,8 +787,8 @@ SCIP_RETCODE init_row(
     assert(lpi->rows != NULL);
     assert(lpi->rows->rows_ptr != NULL);
     assert(lpi->rows->nrows > row);
-    lpi->rows->rows_ptr[row] = (struct SCIP_Row*)calloc(sizeof(struct SCIP_Row), 1);
-    lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(sizeof(SCIP_Real), 0);
+    lpi->rows->rows_ptr[row] = (struct SCIP_Row*)calloc(1, sizeof(struct SCIP_Row));
+    lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(0, sizeof(SCIP_Real));
     resize_row_objs(lpi, row, get_ncols(lpi));
     memset(lpi->rows->rows_ptr[row]->objs, 0, sizeof(SCIP_Real) * get_ncols(lpi));
     return SCIP_OKAY;
@@ -808,7 +808,7 @@ SCIP_RETCODE init_rows(
         free(lpi->rows->rows_ptr);
         free(lpi->rows);
     }
-    lpi->rows = (struct SCIP_Rows*)calloc(sizeof(struct SCIP_Rows), 1);
+    lpi->rows = (struct SCIP_Rows*)calloc(1, sizeof(struct SCIP_Rows));
     lpi->rows->rows_ptr = NULL;
     lpi->rows->nrows = 0;
     return SCIP_OKAY;
@@ -2118,7 +2118,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
             //(*CVector)[*nvector - 1] = -lb;
             //SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", *nvector - 1, (*CVector)[*nvector - 1]);
             //*AMatrixOfColumns = realloc(*AMatrixOfColumns, sizeof(SCIP_Real*) * *nvector);
-            //(*AMatrixOfColumns)[*nvector - 1] = (SCIP_Real*)calloc(sizeof(SCIP_Real), ncols);
+            //(*AMatrixOfColumns)[*nvector - 1] = (SCIP_Real*)calloc(ncols, sizeof(SCIP_Real));
             //(*AMatrixOfColumns)[*nvector - 1][i] = -get_column_obj_real(lpi, i);
         }
         scs_float ub = get_column_upper_bound_real(lpi, i);
@@ -2129,14 +2129,14 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
             //(*CVector)[*nvector - 1] = ub;
             //SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", *nvector - 1, (*CVector)[*nvector - 1]);
             //*AMatrixOfColumns = realloc(*AMatrixOfColumns, sizeof(SCIP_Real*) * *nvector);
-            //(*AMatrixOfColumns)[*nvector - 1] = (SCIP_Real*)calloc(sizeof(SCIP_Real), ncols);
+            //(*AMatrixOfColumns)[*nvector - 1] = (SCIP_Real*)calloc(ncols, sizeof(SCIP_Real));
             //(*AMatrixOfColumns)[*nvector - 1][i] = get_column_obj_real(lpi, i);
         }
     }
     SCIPdebugMessage("*nvector: %d\n", *nvector);
     int nvector_ptr = 0;
-    *AMatrixOfColumns = (scs_float**)calloc(sizeof(scs_float*), *nvector);
-    *CVector = (scs_float**)calloc(sizeof(scs_float*), *nvector);
+    *AMatrixOfColumns = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    *CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
     for (int i = 0; i < ncols; i++)
     {
         scs_float lb = get_column_lower_bound_real(lpi, i);
@@ -2145,7 +2145,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
             (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = -lb;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
-            (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(sizeof(scs_float), ncols);
+            (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
             (*AMatrixOfColumns)[nvector_ptr][i] = -1; //-get_column_obj_real(lpi, i);
             SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
                 (*AMatrixOfColumns)[nvector_ptr][i]);
@@ -2157,7 +2157,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
             (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = ub;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
-            (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(sizeof(scs_float), ncols);
+            (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
             (*AMatrixOfColumns)[nvector_ptr][i] = 1; // get_column_obj_real(lpi, i);
             SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
                 (*AMatrixOfColumns)[nvector_ptr][i]);
@@ -2180,15 +2180,15 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
     {
         return SCIP_OKAY;
     }
-    *AMatrixOfRows = (scs_float**)calloc(sizeof(scs_float*), 0);
-    *CVector = (scs_float**)calloc(sizeof(scs_float*), 0);
+    *AMatrixOfRows = (scs_float**)calloc(0, sizeof(scs_float*));
+    *CVector = (scs_float**)calloc(0, sizeof(scs_float*));
     *nvector = 0;
     for (int i = 0; i < get_nrows(lpi); i++)
     {
         const scs_float lhs = get_row_lhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lhs))
         {
-            scs_float* AVectorLHS = calloc(sizeof(scs_float), nrows);
+            scs_float* AVectorLHS = calloc(nrows, sizeof(scs_float));
             for (int j = 0; j < get_ncols(lpi); j++)
             {
                 AVectorLHS[j] = -get_row_obj_real(lpi, i, j);
@@ -2202,7 +2202,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
         const scs_float rhs = get_row_rhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, rhs))
         {
-            scs_float* AVectorRHS = calloc(sizeof(scs_float), nrows);
+            scs_float* AVectorRHS = calloc(nrows, sizeof(scs_float));
             for (int j = 0; j < get_ncols(lpi); j++)
             {
                 AVectorRHS[j] = get_row_obj_real(lpi, i, j);
