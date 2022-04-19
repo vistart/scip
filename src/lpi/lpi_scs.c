@@ -327,7 +327,7 @@ const char* get_column_name(
  * 设置指定列的名称，即变量名。
  * @param lpi 指向线性求解器接口结构体的指针。
  * @param col 列号。从 0 开始。
- * @param val 新的列名。
+ * @param val 新的列名字符串指针。注意！不能为空。
  * @return 设置成功。
  */
 SCIP_RETCODE set_column_name(
@@ -336,6 +336,7 @@ SCIP_RETCODE set_column_name(
     char* val
 )
 {
+    assert(val != NULL);
     assert(lpi != NULL);
     assert(lpi->columns != NULL);
     assert(lpi->columns->ncols > 0);
@@ -647,19 +648,27 @@ const char* get_row_name(
     return lpi->rows->rows_ptr[row]->name;
 }
 
+/**
+ * 设置指定行的名称，即变量名。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param row 列号。从 0 开始。
+ * @param val 新的行名字符串指针。注意！不能为空。
+ * @return 设置成功。
+ */
 SCIP_RETCODE set_row_name(
     SCIP_LPI* lpi,
     int row,
-    char* name
+    char* val
 )
 {
+    assert(val != NULL);
     assert(lpi != NULL);
     assert(lpi->rows != NULL);
     assert(lpi->rows->nrows > 0);
     assert(lpi->rows->nrows > row);
     assert(lpi->rows->rows_ptr != NULL);
     assert(lpi->rows->rows_ptr[row] != NULL);
-    lpi->rows->rows_ptr[row]->name = name;
+    lpi->rows->rows_ptr[row]->name = val;
     return SCIP_OKAY;
 }
 
@@ -2180,38 +2189,50 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
     {
         return SCIP_OKAY;
     }
-    *AMatrixOfRows = (scs_float**)calloc(0, sizeof(scs_float*));
-    *CVector = (scs_float**)calloc(0, sizeof(scs_float*));
     *nvector = 0;
     for (int i = 0; i < get_nrows(lpi); i++)
     {
         const scs_float lhs = get_row_lhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lhs))
         {
-            scs_float* AVectorLHS = calloc(nrows, sizeof(scs_float));
-            for (int j = 0; j < get_ncols(lpi); j++)
-            {
-                AVectorLHS[j] = -get_row_obj_real(lpi, i, j);
-            }
-            *AMatrixOfRows = realloc(*AMatrixOfRows, sizeof(scs_float*) * ++*nvector);
-            (*AMatrixOfRows)[*nvector - 1] = AVectorLHS;
-            *CVector = realloc(*CVector, sizeof(scs_float*) * *nvector);
-            (*CVector)[*nvector - 1] = (scs_float*)calloc(1, sizeof(scs_float));
-            (*CVector)[*nvector - 1][0] = -lhs;
+            ++*nvector;
         }
         const scs_float rhs = get_row_rhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, rhs))
         {
-            scs_float* AVectorRHS = calloc(nrows, sizeof(scs_float));
-            for (int j = 0; j < get_ncols(lpi); j++)
+            ++*nvector;
+        }
+    }
+    SCIPdebugMessage("*nvector: %d\n", *nvector);
+    int nvector_ptr = 0;
+    *AMatrixOfRows = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    *CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    const int ncols = get_ncols(lpi);
+    for (int i = 0; i < get_nrows(lpi); i++)
+    {
+        const scs_float lhs = get_row_lhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, -lhs))
+        {
+            (*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+            for (int j = 0; j < ncols; j++)
             {
-                AVectorRHS[j] = get_row_obj_real(lpi, i, j);
+                (*AMatrixOfRows)[nvector_ptr][j] = -get_row_obj_real(lpi, i, j);
             }
-            *AMatrixOfRows = realloc(*AMatrixOfRows, sizeof(scs_float*) * ++*nvector);
-            (*AMatrixOfRows)[*nvector - 1] = AVectorRHS;
-            *CVector = realloc(*CVector, sizeof(scs_float*) * *nvector);
-            (*CVector)[*nvector - 1] = (scs_float*)calloc(1, sizeof(scs_float));
-            (*CVector)[*nvector - 1][0] = rhs;
+            (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+            (*CVector)[nvector_ptr][0] = -lhs;
+            nvector_ptr++;
+        }
+        const scs_float rhs = get_row_rhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, rhs))
+        {
+            (*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+            for (int j = 0; j < ncols; j++)
+            {
+                (*AMatrixOfRows)[nvector_ptr][j] = get_row_obj_real(lpi, i, j);
+            }
+            (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+            (*CVector)[nvector_ptr][0] = rhs;
+            nvector_ptr++;
         }
     }
     return SCIP_OKAY;
