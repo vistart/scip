@@ -2384,7 +2384,7 @@ SCIP_RETCODE ConstructCVector(
     *c = (scs_float*)calloc(get_ncols(lpi), sizeof(scs_float));
     for (int i = 0; i < get_ncols(lpi); i++)
     {
-        (*c)[i] = get_column_obj_real(lpi, i);
+        (*c)[i] = (lpi->objsen == SCIP_OBJSEN_MAXIMIZE) ? (-get_column_obj_real(lpi, i)) : get_column_obj_real(lpi, i);
     }
     return SCIP_OKAY;
 }
@@ -2562,6 +2562,16 @@ SCIP_RETCODE debug_print_scs_data(
     } else
     {
         SCIPdebugMessage("A matrix is empty.\n");
+    }
+    SCIPdebugMessage("SCSData b vector:\n");
+    if (nnonz) {
+        for (int i = 0; i < nnonz; i++) {
+            SCIPdebugMessage("%8.2f at %lld ", lpi->scsdata->b[i], lpi->scsdata->A->i[i]);
+        }
+        SCIPdebugMessage("\n");
+    }
+    else {
+        SCIPdebugMessage("c vector is empty.\n");
     }
     SCIPdebugMessage("SCSData c vector:\n");
     for (int i = 0; i < lpi->scsdata->n; i++) {
@@ -3170,6 +3180,12 @@ SCIP_BASESTAT getBaseOfColumn(
     int col
 )
 {
+    SCIPdebugMessage("calling getBaseOfColumn()...\n");
+    SCIPdebugMessage("lower bound infinite small: %d\n", ISLPIINFINITESIMAL(get_column_lower_bound_real(lpi, col)));
+    SCIPdebugMessage("upper bound infinite small: %d\n", ISLPIINFINITESIMAL(get_column_upper_bound_real(lpi, col)));
+    SCIPdebugMessage("lower bound, upper bound: [%8.2f, %8.2f]\n", -get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
+    SCIPdebugMessage("lower bound infinity: %d\n", SCIPlpiIsInfinity(lpi, -get_column_lower_bound_real(lpi, col)));
+    SCIPdebugMessage("upper bound infinity: %d\n", SCIPlpiIsInfinity(lpi, get_column_upper_bound_real(lpi, col)));
     if (ISLPIINFINITESIMAL(get_column_lower_bound_real(lpi, col)) && ISLPIINFINITESIMAL(get_column_upper_bound_real(lpi, col)))
     {
         return SCIP_BASESTAT_ZERO;
@@ -3208,6 +3224,7 @@ SCIP_RETCODE SCIPlpiGetBase(
             cstat[i] = getBaseOfColumn(lpi, i); // lpi->cstat[i];
         }
     }
+    SCIPdebugMessage("calling SCIPlpiGetBase()... done!\n");
     return SCIP_OKAY;
 }
 
