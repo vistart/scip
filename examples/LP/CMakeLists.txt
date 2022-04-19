@@ -12,13 +12,18 @@ endif()
 
 include_directories(${SCIP_INCLUDE_DIRS})
 
-add_executable(lp
-        problem_2.cpp "problem_2.cpp")
+add_executable(lp_problem_0 "problem_0.cpp")
+add_executable(lp_problem_1 "problem_1.cpp")
+add_executable(lp_problem_2 "problem_2.cpp")
+add_executable(lp_problem_3 "problem_3.cpp")
 
-target_link_libraries(lp ${SCIP_LIBRARIES})
+target_link_libraries(lp_problem_0 ${SCIP_LIBRARIES})
+target_link_libraries(lp_problem_1 ${SCIP_LIBRARIES})
+target_link_libraries(lp_problem_2 ${SCIP_LIBRARIES})
+target_link_libraries(lp_problem_3 ${SCIP_LIBRARIES})
 
 if( TARGET examples )
-    add_dependencies( examples lp )
+    add_dependencies( examples lp_problem_0 )
 endif()
 
 # enable_testing()
