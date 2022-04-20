@@ -2093,7 +2093,56 @@ SCIP_RETCODE SCIPlpiGetCoef(
 
  /**@name Solving Methods */
  /**@{ */
+/**
+ * 统计列（Column）中有限区间数。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @return 有限区间数。
+ */
+int get_number_of_finite_columns(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    const int ncols = get_ncols(lpi);
+    if (lpi->columns == NULL || ncols == 0) {
+        return 0;
+    }
+    int nvector = 0;
+    for (int i = 0; i < ncols; i++)
+    {
+        scs_float lb = get_column_lower_bound_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, -lb))
+        {
+            ++nvector;
+        }
+        scs_float ub = get_column_upper_bound_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, ub))
+        {
+            ++nvector;
+        }
+    }
+    return nvector;
+}
 
+/**
+ */
+SCIP_RETCODE ConstructAMatrixRowAndCVectorElement(
+    scs_float*** AMatrixOfColumns,
+    scs_float*** CVector,
+    int ncols,
+    int nvector_ptr,
+    int i,
+    scs_float elements_of_a_matrix_of_columns,
+    scs_float bound
+)
+{
+    (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+    (*CVector)[nvector_ptr][0] = bound;
+    SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
+    (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+    (*AMatrixOfColumns)[nvector_ptr][i] = elements_of_a_matrix_of_columns; //-get_column_obj_real(lpi, i);
+    return SCIP_OKAY;
+}
 /**
  * 根据 SCIP 提供的列（Column）构建 SCS 的 A 矩阵（约束）和对应的 c 向量（约束上界）。
  * @param lpi 指向线性求解器接口结构体的指针。
@@ -2116,6 +2165,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     {
         return SCIP_OKAY;
     }
+    /**
     *nvector = 0;
     for (int i = 0; i < ncols; i++)
     {
@@ -2141,7 +2191,8 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
             //(*AMatrixOfColumns)[*nvector - 1] = (SCIP_Real*)calloc(ncols, sizeof(SCIP_Real));
             //(*AMatrixOfColumns)[*nvector - 1][i] = get_column_obj_real(lpi, i);
         }
-    }
+    }*/
+    *nvector = get_number_of_finite_columns(lpi);
     SCIPdebugMessage("*nvector: %d\n", *nvector);
     int nvector_ptr = 0;
     *AMatrixOfColumns = (scs_float**)calloc(*nvector, sizeof(scs_float*));
@@ -2151,11 +2202,13 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
         scs_float lb = get_column_lower_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lb))
         {
+            ConstructAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr, i, -1, -lb);
+            /**
             (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = -lb;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
             (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
-            (*AMatrixOfColumns)[nvector_ptr][i] = -1; //-get_column_obj_real(lpi, i);
+            (*AMatrixOfColumns)[nvector_ptr][i] = -1; //-get_column_obj_real(lpi, i);*/
             SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
                 (*AMatrixOfColumns)[nvector_ptr][i]);
             nvector_ptr++;
@@ -2163,11 +2216,13 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
         scs_float ub = get_column_upper_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, ub))
         {
+            ConstructAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr, i, 1, ub);
+            /**
             (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = ub;
             SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
             (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
-            (*AMatrixOfColumns)[nvector_ptr][i] = 1; // get_column_obj_real(lpi, i);
+            (*AMatrixOfColumns)[nvector_ptr][i] = 1; // get_column_obj_real(lpi, i);*/
             SCIPdebugMessage("(*AMatrixOfColumns)[%d][%d]: %8.2f\n", nvector_ptr, i,
                 (*AMatrixOfColumns)[nvector_ptr][i]);
             nvector_ptr++;
@@ -2176,6 +2231,39 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     return SCIP_OKAY;
 }
 
+/**
+ * 统计列（Column）中有限区间数。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @return 有限区间数。
+ */
+int get_number_of_finite_rows(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    const int nrows = get_nrows(lpi);
+    if (lpi->rows == NULL || nrows == 0) {
+        return 0;
+    }
+    int nvector = 0;
+    for (int i = 0; i < nrows; i++)
+    {
+        scs_float lhs = get_row_lhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, -lhs))
+        {
+            ++nvector;
+        }
+        scs_float rhs = get_row_rhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, rhs))
+        {
+            ++nvector;
+        }
+    }
+    return nvector;
+}
+
+/**
+ */
 SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
     SCIP_LPI* lpi,
     scs_float*** AMatrixOfRows,
@@ -2189,6 +2277,7 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
     {
         return SCIP_OKAY;
     }
+    /**
     *nvector = 0;
     for (int i = 0; i < get_nrows(lpi); i++)
     {
@@ -2202,7 +2291,8 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
         {
             ++*nvector;
         }
-    }
+    }*/
+    *nvector = get_number_of_finite_rows(lpi);
     SCIPdebugMessage("*nvector: %d\n", *nvector);
     int nvector_ptr = 0;
     *AMatrixOfRows = (scs_float**)calloc(*nvector, sizeof(scs_float*));

@@ -32,9 +32,9 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     SCIP_CALL(SCIPlpiCreate(&lpi, NULL, "prob", SCIP_OBJSEN_MAXIMIZE));
 
     /* use the following LP as base:
-     *   max x
-     *       1 <= x <= 2  (linear constraint)
-     *       0 <= x <= 3  (bounds)
+     *   max x + y
+     *       0 <= x + 2y <= 4  (linear constraint)
+     *       0 <= x,y <= 2  (bounds)
      */
      /* add one column */
     SCIP_CALL(SCIPlpiAddCols(lpi, 2, obj, lb, ub, NULL, 0, NULL, NULL, NULL));
@@ -43,6 +43,10 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     SCIP_CALL(SCIPlpiAddRows(lpi, 1, &lhs, &rhs, NULL, 2, &beg, ind, val));
 
     SCIP_CALL(SCIPlpiSolvePrimal(lpi));
+    int cstats[2];
+    int rstats[1];
+    SCIP_CALL(SCIPlpiGetBase(lpi, cstats, rstats));
+    printf("(%d, %d), (%d)\n", cstats[0], cstats[1], rstats[0]);
 
     SCIP_CALL(SCIPlpiGetSol(lpi, NULL, NULL, NULL, NULL, NULL));
 
