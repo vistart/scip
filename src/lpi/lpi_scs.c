@@ -2545,11 +2545,13 @@ SCIP_RETCODE ConstructAMatrix(
 
     scs_float** AMatrix;
     scs_float** CVector;
-
+    
     CombineTwoMatricesByRow(AMatrixOfColumns, AMatrixOfRows, &AMatrix, nvectorCol, nvectorRow, *n);
+    //CombineTwoMatricesByRow(AMatrixOfRows, AMatrixOfColumns, &AMatrix, nvectorRow, nvectorCol, *n);
     lpi->nconsbycol = nvectorCol;
     debug_print_matrix_real(AMatrix, *m, *n);
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
+    //CombineTwoMatricesByRow(CVectorOfRows, CVectorOfColumns, &CVector, nvectorRow, nvectorCol, 1);
     debug_print_matrix_real(CVector, *m, 1);
 
     CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
@@ -3277,26 +3279,12 @@ SCIP_RETCODE SCIPlpiGetRealSolQuality(
  /**@name LP Basis Methods */
  /**@{ */
 
-SCIP_BASESTAT getBaseOfRow(
-    SCIP_LPI* lpi,
-    int row
-)
-{
-    if (ISLPIINFINITESIMAL(get_row_lhs_real(lpi, row)) && ISLPIINFINITESIMAL(get_row_rhs_real(lpi, row)))
-    {
-        return SCIP_BASESTAT_ZERO;
-    }
-    if (!SCIPlpiIsInfinity(lpi, -get_row_lhs_real(lpi, row)) && SCIPlpiIsInfinity(lpi, get_row_rhs_real(lpi, row)))
-    {
-        return SCIP_BASESTAT_LOWER;
-    }
-    if (SCIPlpiIsInfinity(lpi, -get_row_lhs_real(lpi, row)) && !SCIPlpiIsInfinity(lpi, get_row_rhs_real(lpi, row)))
-    {
-        return SCIP_BASESTAT_UPPER;
-    }
-    return SCIP_BASESTAT_BASIC;
-}
-
+/**
+ * 计算指定列（变量）的解。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param row 列号。
+ * @return 该列（变量）的解。
+ */
 SCIP_Real get_sol_by_column(
     SCIP_LPI* lpi,
     int col
@@ -3314,12 +3302,14 @@ SCIP_BASESTAT getBaseOfColumn(
 )
 {
     SCIPdebugMessage("calling getBaseOfColumn()...\n");
+    assert(lpi != NULL);
+    SCIP_Real sol = get_sol_by_column(lpi, col);
     SCIPdebugMessage("lower bound[%d], upper bound[%d]: [%8.2f, %8.2f]\n", col, col, get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
-    SCIPdebugMessage("x[%d]: %8.2f\n", col, get_sol_by_column(lpi, col));
-    SCIPdebugMessage("x - lower bound: %8.2f\n", ABS((get_sol_by_column(lpi, col) - get_column_lower_bound_real(lpi, col))));
-    SCIPdebugMessage("x - upper bound: %8.2f\n", ABS((get_sol_by_column(lpi, col) - get_column_upper_bound_real(lpi, col))));
-    SCIPdebugMessage("x - lower bound is infinitesimal: %d\n", ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_lower_bound_real(lpi, col))));
-    SCIPdebugMessage("x - upper bound is infinitesimal: %d\n", ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_upper_bound_real(lpi, col))));
+    SCIPdebugMessage("x[%d]: %8.2f\n", col, sol);
+    SCIPdebugMessage("x - lower bound: %8.2f\n", ABS(sol - get_column_lower_bound_real(lpi, col)));
+    SCIPdebugMessage("x - upper bound: %8.2f\n", ABS(sol - get_column_upper_bound_real(lpi, col)));
+    SCIPdebugMessage("x - lower bound is infinitesimal: %d\n", ISLPIINFINITESIMAL(sol - get_column_lower_bound_real(lpi, col)));
+    SCIPdebugMessage("x - upper bound is infinitesimal: %d\n", ISLPIINFINITESIMAL(sol - get_column_upper_bound_real(lpi, col)));
     /**
     if (ISLPIINFINITESIMAL(get_column_lower_bound_real(lpi, col)) && ISLPIINFINITESIMAL(get_column_upper_bound_real(lpi, col)))
     {
@@ -3334,13 +3324,72 @@ SCIP_BASESTAT getBaseOfColumn(
         return SCIP_BASESTAT_UPPER;
     }
     */
-    if (ISLPIINFINITESIMAL(get_sol_by_column(lpi, col))) {
+    if (ISLPIINFINITESIMAL(sol)) {
         return SCIP_BASESTAT_ZERO;
     }
-    if (ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_lower_bound_real(lpi, col)))) {
+    if (ISLPIINFINITESIMAL(sol - get_column_lower_bound_real(lpi, col))) {
         return SCIP_BASESTAT_LOWER;
     }
-    if (ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_upper_bound_real(lpi, col)))) {
+    if (ISLPIINFINITESIMAL(sol - get_column_upper_bound_real(lpi, col))) {
+        return SCIP_BASESTAT_UPPER;
+    }
+    return SCIP_BASESTAT_BASIC;
+}
+
+/**
+ * 计算指定行（约束）表达式的实际值。
+ * @param lpi 指向线性求解器接口结构体的指针。
+ * @param row 行号。
+ * @return 该行（约束）表达式的实际值。
+ */
+SCIP_Real get_sol_by_row(
+    SCIP_LPI* lpi,
+    int row
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->columns != NULL);
+    assert(lpi->rows != NULL);
+    assert(lpi->scssol != NULL);
+    SCIP_Real result = 0;
+    for (int i = 0; i < get_ncols(lpi); i++) {
+        result += get_sol_by_column(lpi, i) * get_row_obj_real(lpi, row, i);
+    }
+    return result;
+}
+
+SCIP_BASESTAT getBaseOfRow(
+    SCIP_LPI* lpi,
+    int row
+)
+{
+    SCIPdebugMessage("calling getBaseOfRow()...\n");
+    assert(lpi != NULL);
+    SCIP_Real sol = get_sol_by_row(lpi, row);
+    SCIPdebugMessage("lhs[%d], rhs[%d]: [%8.2f, %8.2f]\n", row, row, get_row_lhs_real(lpi, row), get_row_rhs_real(lpi, row));
+    SCIPdebugMessage("x[%d]: %8.2f\n", row, sol);
+    SCIPdebugMessage("x - lhs: %8.2f\n", ABS(sol - get_row_lhs_real(lpi, row)));
+    SCIPdebugMessage("x - rhs: %8.2f\n", ABS(sol - get_row_rhs_real(lpi, row)));
+    /**
+    if (ISLPIINFINITESIMAL(get_row_lhs_real(lpi, row)) && ISLPIINFINITESIMAL(get_row_rhs_real(lpi, row)))
+    {
+        return SCIP_BASESTAT_ZERO;
+    }
+    if (!SCIPlpiIsInfinity(lpi, -get_row_lhs_real(lpi, row)) && SCIPlpiIsInfinity(lpi, get_row_rhs_real(lpi, row)))
+    {
+        return SCIP_BASESTAT_LOWER;
+    }
+    if (SCIPlpiIsInfinity(lpi, -get_row_lhs_real(lpi, row)) && !SCIPlpiIsInfinity(lpi, get_row_rhs_real(lpi, row)))
+    {
+        return SCIP_BASESTAT_UPPER;
+    }*/
+    if (ISLPIINFINITESIMAL(sol)) {
+        return SCIP_BASESTAT_ZERO;
+    }
+    if (ISLPIINFINITESIMAL(sol - get_row_lhs_real(lpi, row))) {
+        return SCIP_BASESTAT_LOWER;
+    }
+    if (ISLPIINFINITESIMAL(sol - get_row_rhs_real(lpi, row))) {
         return SCIP_BASESTAT_UPPER;
     }
     return SCIP_BASESTAT_BASIC;
