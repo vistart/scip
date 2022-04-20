@@ -2345,30 +2345,41 @@ SCIP_RETCODE debug_print_matrix_real(
     return SCIP_OKAY;
 }
 
+/**
+ * 将两个矩阵上下结合。
+ * 两个矩阵的列数可以不相等，但均不能超过 ncol。
+ * @param matrixUp 待合并上矩阵。
+ * @param matrixBottom 待合并下矩阵。
+ * @param matrix
+ * @param nrowUp
+ * @param nrowBottom
+ * @param ncol
+ * @return 执行成功。
+ */
 SCIP_RETCODE CombineTwoMatricesByRow(
-    scs_float** matrixA,
-    scs_float** matrixB,
+    scs_float** matrixUp,
+    scs_float** matrixBottom,
     scs_float*** matrix,
-    const int nrowA,
-    const int nrowB,
+    const int nrowUp,
+    const int nrowBottom,
     const int ncol
 )
 {
-    *matrix = (scs_float**)calloc(nrowA + nrowB, sizeof(scs_float*));
-    for (int i = 0; i < nrowA; i++)
+    *matrix = (scs_float**)calloc(nrowUp + nrowBottom, sizeof(scs_float*));
+    for (int i = 0; i < nrowUp; i++)
     {
         (*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
         for (int j = 0; j < ncol; j++)
         {
-            (*matrix)[i][j] = matrixA[i][j];
+            (*matrix)[i][j] = matrixUp[i][j];
         }
     }
-    for (int i = nrowA; i < nrowA + nrowB; i++)
+    for (int i = nrowUp; i < nrowUp + nrowBottom; i++)
     {
         (*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
         for (int j = 0; j < ncol; j++)
         {
-            (*matrix)[i][j] = matrixB[i - nrowA][j];
+            (*matrix)[i][j] = matrixBottom[i - nrowUp][j];
         }
     }
     return SCIP_OKAY;
