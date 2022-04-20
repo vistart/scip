@@ -32,7 +32,7 @@
 #define LPINAME            "SCS"                             /**< name of the LPI interface */
 #define LPIINFINITY        1e+20                             /**< infinity value */
 #define ABS(x) ((x)>0?(x):-(x))                              /**< get absolute value of x */
-#define LPIINFINITESIMAL   1e-10                             /**< infinitily small value */
+#define LPIINFINITESIMAL   1e-8                             /**< infinitily small value */
 #define ISLPIINFINITESIMAL(x) (ABS(x)<LPIINFINITESIMAL)      /**< determine whether the x is infinitesimal */
 
 typedef SCIP_DUALPACKET COLPACKET;           /* each column needs two bits of information (basic/on_lower/on_upper) */
@@ -3297,17 +3297,30 @@ SCIP_BASESTAT getBaseOfRow(
     return SCIP_BASESTAT_BASIC;
 }
 
+SCIP_Real get_sol_by_column(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->scssol != NULL);
+    assert(lpi->scssol->x != NULL);
+    return lpi->scssol->x[col];
+}
+
 SCIP_BASESTAT getBaseOfColumn(
     SCIP_LPI* lpi,
     int col
 )
 {
     SCIPdebugMessage("calling getBaseOfColumn()...\n");
-    SCIPdebugMessage("lower bound infinite small: %d\n", ISLPIINFINITESIMAL(get_column_lower_bound_real(lpi, col)));
-    SCIPdebugMessage("upper bound infinite small: %d\n", ISLPIINFINITESIMAL(get_column_upper_bound_real(lpi, col)));
-    SCIPdebugMessage("lower bound, upper bound: [%8.2f, %8.2f]\n", -get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
-    SCIPdebugMessage("lower bound infinity: %d\n", SCIPlpiIsInfinity(lpi, -get_column_lower_bound_real(lpi, col)));
-    SCIPdebugMessage("upper bound infinity: %d\n", SCIPlpiIsInfinity(lpi, get_column_upper_bound_real(lpi, col)));
+    SCIPdebugMessage("lower bound[%d], upper bound[%d]: [%8.2f, %8.2f]\n", col, col, get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
+    SCIPdebugMessage("x[%d]: %8.2f\n", col, get_sol_by_column(lpi, col));
+    SCIPdebugMessage("x - lower bound: %8.2f\n", ABS((get_sol_by_column(lpi, col) - get_column_lower_bound_real(lpi, col))));
+    SCIPdebugMessage("x - upper bound: %8.2f\n", ABS((get_sol_by_column(lpi, col) - get_column_upper_bound_real(lpi, col))));
+    SCIPdebugMessage("x - lower bound is infinitesimal: %d\n", ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_lower_bound_real(lpi, col))));
+    SCIPdebugMessage("x - upper bound is infinitesimal: %d\n", ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_upper_bound_real(lpi, col))));
+    /**
     if (ISLPIINFINITESIMAL(get_column_lower_bound_real(lpi, col)) && ISLPIINFINITESIMAL(get_column_upper_bound_real(lpi, col)))
     {
         return SCIP_BASESTAT_ZERO;
@@ -3318,6 +3331,16 @@ SCIP_BASESTAT getBaseOfColumn(
     }
     if (SCIPlpiIsInfinity(lpi, -get_column_lower_bound_real(lpi, col)) && !SCIPlpiIsInfinity(lpi, get_column_upper_bound_real(lpi, col)))
     {
+        return SCIP_BASESTAT_UPPER;
+    }
+    */
+    if (ISLPIINFINITESIMAL(get_sol_by_column(lpi, col))) {
+        return SCIP_BASESTAT_ZERO;
+    }
+    if (ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_lower_bound_real(lpi, col)))) {
+        return SCIP_BASESTAT_LOWER;
+    }
+    if (ISLPIINFINITESIMAL((get_sol_by_column(lpi, col) - get_column_upper_bound_real(lpi, col)))) {
         return SCIP_BASESTAT_UPPER;
     }
     return SCIP_BASESTAT_BASIC;
