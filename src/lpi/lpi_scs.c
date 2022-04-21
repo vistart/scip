@@ -19,7 +19,7 @@
   * @license https://vistart.me/license/
   */
 
-  /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
+/*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
 #include <assert.h>
 #include <string.h>
@@ -3324,14 +3324,14 @@ SCIP_BASESTAT getBaseOfColumn(
         return SCIP_BASESTAT_UPPER;
     }
     */
-    if (ISLPIINFINITESIMAL(sol)) {
-        return SCIP_BASESTAT_ZERO;
-    }
     if (ISLPIINFINITESIMAL(sol - get_column_lower_bound_real(lpi, col))) {
         return SCIP_BASESTAT_LOWER;
     }
     if (ISLPIINFINITESIMAL(sol - get_column_upper_bound_real(lpi, col))) {
         return SCIP_BASESTAT_UPPER;
+    }
+    if (ISLPIINFINITESIMAL(sol)) {
+        return SCIP_BASESTAT_ZERO;
     }
     return SCIP_BASESTAT_BASIC;
 }
@@ -3383,14 +3383,14 @@ SCIP_BASESTAT getBaseOfRow(
     {
         return SCIP_BASESTAT_UPPER;
     }*/
-    if (ISLPIINFINITESIMAL(sol)) {
-        return SCIP_BASESTAT_ZERO;
-    }
     if (ISLPIINFINITESIMAL(sol - get_row_lhs_real(lpi, row))) {
         return SCIP_BASESTAT_LOWER;
     }
     if (ISLPIINFINITESIMAL(sol - get_row_rhs_real(lpi, row))) {
         return SCIP_BASESTAT_UPPER;
+    }
+    if (ISLPIINFINITESIMAL(sol)) {
+        return SCIP_BASESTAT_ZERO;
     }
     return SCIP_BASESTAT_BASIC;
 }
