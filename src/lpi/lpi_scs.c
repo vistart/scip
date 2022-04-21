@@ -2395,8 +2395,6 @@ SCIP_RETCODE CompressMatrixByRow(
 )
 {
     int nnonz = 0;
-    *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
-    *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
     *p = (scs_int*)calloc(row + 1, sizeof(scs_int));
     for (int i = 0; i < row; i++)
     {
@@ -2406,12 +2404,30 @@ SCIP_RETCODE CompressMatrixByRow(
             {
                 continue;
             }
+            ++nnonz;
+            /**
             *x = realloc(*x, ++nnonz * sizeof(scs_float));
             (*x)[nnonz - 1] = matrix[i][j];
             *ix = realloc(*ix, nnonz * sizeof(scs_int));
-            (*ix)[nnonz - 1] = j;
+            (*ix)[nnonz - 1] = j;*/
         }
         (*p)[i + 1] = nnonz;
+    }
+    *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
+    *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
+    int nnonz_ptr = 0;
+    for (int i = 0; i < row; i++)
+    {
+        for (int j = 0; j < col; j++)
+        {
+            if (ISLPIINFINITESIMAL(matrix[i][j]))
+            {
+                continue;
+            }
+            ++nnonz_ptr;
+            (*x)[++nnonz_ptr - 1] = matrix[i][j];
+            (*ix)[nnonz_ptr - 1] = j;
+        }
     }
     /**
     int nnonzbycol = 0;
@@ -2440,8 +2456,6 @@ SCIP_RETCODE CompressMatrixByColumn(
 )
 {
     int nnonz = 0;
-    *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
-    *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
     *p = (scs_int*)calloc(col + 1, sizeof(scs_int));
     for (int i = 0; i < col; i++)
     {
@@ -2451,12 +2465,29 @@ SCIP_RETCODE CompressMatrixByColumn(
             {
                 continue;
             }
+            ++nnonz;
+            /**
             *x = realloc(*x, ++nnonz * sizeof(scs_float));
             (*x)[nnonz - 1] = matrix[j][i];
             *ix = realloc(*ix, nnonz * sizeof(scs_int));
-            (*ix)[nnonz - 1] = j;
+            (*ix)[nnonz - 1] = j;*/
         }
         (*p)[i + 1] = nnonz;
+    }
+    int nnonz_ptr = 0;
+    *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
+    *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
+    for (int i = 0; i < col; i++)
+    {
+        for (int j = 0; j < row; j++)
+        {
+            if (ISLPIINFINITESIMAL(matrix[j][i]))
+            {
+                continue;
+            }
+            (*x)[++nnonz_ptr - 1] = matrix[j][i];
+            (*ix)[nnonz_ptr - 1] = j;
+        }
     }
     return SCIP_OKAY;
 }
