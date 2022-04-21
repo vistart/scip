@@ -444,7 +444,10 @@ SCIP_RETCODE free_column(
     assert(col < lpi->columns->ncols);
     if (lpi->columns->columns_ptr[col] != NULL)
     {
+        /**
         free(lpi->columns->columns_ptr[col]);
+        lpi->columns->columns_ptr[col] = NULL;*/
+        BMSfreeMemoryNull(&lpi->columns->columns_ptr[col]);
     }
     return SCIP_OKAY;
 }
@@ -464,11 +467,13 @@ SCIP_RETCODE resize_columns(
     assert(lpi->columns != NULL);
     if (lpi->columns->columns_ptr == NULL)
     {
-        lpi->columns->columns_ptr = (struct SCIP_Column**)calloc(newsize, sizeof(struct SCIP_Column*));
+        SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->columns->columns_ptr, newsize));
+        //lpi->columns->columns_ptr = (struct SCIP_Column**)calloc(newsize, sizeof(struct SCIP_Column*));
     }
     else if (newsize > 0)
     {
-        lpi->columns->columns_ptr = realloc(lpi->columns->columns_ptr, sizeof(struct SCIP_Column*) * newsize);
+        SCIP_ALLOC(BMSreallocMemoryArray(&lpi->columns->columns_ptr, newsize));
+        //lpi->columns->columns_ptr = realloc(lpi->columns->columns_ptr, sizeof(struct SCIP_Column*) * newsize);
     }
     lpi->columns->ncols = newsize;
     return SCIP_OKAY;
@@ -494,7 +499,8 @@ SCIP_RETCODE init_column(
     {
         free(lpi->columns->columns_ptr[col]);
     }*/
-    lpi->columns->columns_ptr[col] = (struct SCIP_Column*)calloc(1, sizeof(struct SCIP_Column));
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->columns->columns_ptr[col]));
+    //lpi->columns->columns_ptr[col] = (struct SCIP_Column*)calloc(1, sizeof(struct SCIP_Column));
     lpi->columns->columns_ptr[col]->intInfo = 0;
     return SCIP_OKAY;
 }
@@ -519,14 +525,20 @@ SCIP_RETCODE init_columns(
     {
         for (int i = 0; i < lpi->columns->ncols; i++)
         {
-            free(lpi->columns->columns_ptr[i]);
+            BMSfreeMemory(&lpi->columns->columns_ptr[i]);
+            //free(lpi->columns->columns_ptr[i]);
         }
-        free(lpi->columns->columns_ptr);
+        BMSfreeMemory(&lpi->columns->columns_ptr);
+        //free(lpi->columns->columns_ptr);
+        BMSfreeMemoryNull(&lpi->columns);
+        /**
         free(lpi->columns);
+        lpi->columns = NULL;*/
     }
-    lpi->columns = (struct SCIP_Columns*)calloc(1, sizeof(struct SCIP_Columns));
-    lpi->columns->columns_ptr = NULL;
-    lpi->columns->ncols = 0;
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->columns));
+    //lpi->columns = (struct SCIP_Columns*)calloc(1, sizeof(struct SCIP_Columns));
+    //lpi->columns->columns_ptr = NULL;
+    //lpi->columns->ncols = 0;
     return SCIP_OKAY;
 }
 
@@ -549,7 +561,8 @@ SCIP_RETCODE clear_columns(
     {
         free_column(lpi, i);
     }
-    free(lpi->columns);
+    BMSfreeMemoryNull(&lpi->columns);
+    //free(lpi->columns);
     return SCIP_OKAY;
 }
 
@@ -732,7 +745,10 @@ SCIP_RETCODE free_row(
     assert(row < lpi->rows->nrows);
     if (lpi->rows->rows_ptr[row] != NULL)
     {
+        BMSfreeMemoryNull(&lpi->rows->rows_ptr[row]);
+        /**
         free(lpi->rows->rows_ptr[row]);
+        lpi->rows->rows_ptr[row] = NULL;*/
     }
     return SCIP_OKAY;
 }
@@ -746,11 +762,13 @@ SCIP_RETCODE resize_rows(
     assert(lpi->rows != NULL);
     if (lpi->rows->rows_ptr == NULL)
     {
-        lpi->rows->rows_ptr = (struct SCIP_Row**)calloc(newsize, sizeof(struct SCIP_Row*));
+        SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->rows->rows_ptr, newsize));
+        //lpi->rows->rows_ptr = (struct SCIP_Row**)calloc(newsize, sizeof(struct SCIP_Row*));
     }
     else if (newsize > 0)
     {
-        lpi->rows->rows_ptr = realloc(lpi->rows->rows_ptr, sizeof(struct SCIP_Row*) * newsize);
+        SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr, newsize));
+        //lpi->rows->rows_ptr = realloc(lpi->rows->rows_ptr, sizeof(struct SCIP_Row*) * newsize);
     }
     lpi->rows->nrows = newsize;
     return SCIP_OKAY;
@@ -767,9 +785,10 @@ SCIP_RETCODE free_rowobj(
     assert(lpi->rows->nrows > row);
     if (lpi->rows->rows_ptr[row]->objs != NULL)
     {
-        free(lpi->rows->rows_ptr[row]->objs);
+        BMSfreeMemoryNull(&lpi->rows->rows_ptr[row]->objs);
+        //free(lpi->rows->rows_ptr[row]->objs);
     }
-    lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(0, sizeof(SCIP_Real));
+    //lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(0, sizeof(SCIP_Real));
     return SCIP_OKAY;
 }
 
@@ -783,7 +802,13 @@ SCIP_RETCODE resize_row_objs(
     assert(lpi->rows != NULL);
     assert(lpi->rows->rows_ptr != NULL);
     assert(lpi->rows->nrows > row);
-    lpi->rows->rows_ptr[row]->objs = realloc(lpi->rows->rows_ptr[row]->objs, sizeof(SCIP_Real) * newsize);
+    if (lpi->rows->rows_ptr[row]->objs == NULL) {
+        SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->rows->rows_ptr[row]->objs, newsize));
+    }
+    else {
+        SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr[row]->objs, newsize));
+    }
+    //lpi->rows->rows_ptr[row]->objs = realloc(lpi->rows->rows_ptr[row]->objs, sizeof(SCIP_Real) * newsize);
     return SCIP_OKAY;
 }
 
@@ -796,8 +821,9 @@ SCIP_RETCODE init_row(
     assert(lpi->rows != NULL);
     assert(lpi->rows->rows_ptr != NULL);
     assert(lpi->rows->nrows > row);
-    lpi->rows->rows_ptr[row] = (struct SCIP_Row*)calloc(1, sizeof(struct SCIP_Row));
-    lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(0, sizeof(SCIP_Real));
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->rows->rows_ptr[row]));
+    //lpi->rows->rows_ptr[row] = (struct SCIP_Row*)calloc(1, sizeof(struct SCIP_Row));
+    //lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(0, sizeof(SCIP_Real));
     resize_row_objs(lpi, row, get_ncols(lpi));
     memset(lpi->rows->rows_ptr[row]->objs, 0, sizeof(SCIP_Real) * get_ncols(lpi));
     return SCIP_OKAY;
@@ -814,12 +840,17 @@ SCIP_RETCODE init_rows(
         {
             free_row(lpi, i);
         }
+        BMSfreeMemory(&lpi->rows->rows_ptr);
+        BMSfreeMemoryNull(&lpi->rows);
+        /**
         free(lpi->rows->rows_ptr);
         free(lpi->rows);
+        lpi->rows = NULL;*/
     }
-    lpi->rows = (struct SCIP_Rows*)calloc(1, sizeof(struct SCIP_Rows));
-    lpi->rows->rows_ptr = NULL;
-    lpi->rows->nrows = 0;
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->rows));
+    //lpi->rows = (struct SCIP_Rows*)calloc(1, sizeof(struct SCIP_Rows));
+    //lpi->rows->rows_ptr = NULL;
+    //lpi->rows->nrows = 0;
     return SCIP_OKAY;
 }
 
@@ -836,7 +867,8 @@ SCIP_RETCODE clear_rows(
     {
         free_row(lpi, i);
     }
-    free(lpi->rows);
+    BMSfreeMemoryNull(&lpi->rows);
+    //free(lpi->rows);
     return SCIP_OKAY;
 }
 
@@ -849,18 +881,24 @@ SCIP_RETCODE init_state(
     assert(lpi != NULL);
     if (lpi->cstatsize > 0 && lpi->cstat != NULL)
     {
-        free(lpi->cstat);
+        BMSfreeMemoryNull(&lpi->cstat);
         lpi->cstatsize = 0;
     }
     if (lpi->rstatsize > 0 && lpi->rstat != NULL)
     {
-        free(lpi->rstat);
+        BMSfreeMemoryNull(&lpi->rstat);
         lpi->rstatsize = 0;
     }
     lpi->cstatsize = get_ncols(lpi);
-    lpi->cstat = (int*)calloc(lpi->cstatsize, sizeof(int));
+    if (lpi->cstatsize > 0) {
+        SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->cstat, lpi->cstatsize));
+    }
+    //lpi->cstat = (int*)calloc(lpi->cstatsize, sizeof(int));
     lpi->rstatsize = get_nrows(lpi);
-    lpi->rstat = (int*)calloc(lpi->rstatsize, sizeof(int));
+    if (lpi->rstatsize > 0) {
+        SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->rstat, lpi->rstatsize));
+    }
+    //lpi->rstat = (int*)calloc(lpi->rstatsize, sizeof(int));
     return SCIP_OKAY;
 }
 
@@ -870,7 +908,8 @@ SCIP_RETCODE resize_state_rows(
 )
 {
     assert(lpi != NULL);
-    lpi->rstat = realloc(lpi->rstat, nrows * sizeof(int));
+    SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rstat, nrows));
+    //lpi->rstat = realloc(lpi->rstat, nrows * sizeof(int));
     lpi->rstatsize = nrows;
     return SCIP_OKAY;
 }
@@ -881,7 +920,8 @@ SCIP_RETCODE resize_state_columns(
 )
 {
     assert(lpi != NULL);
-    lpi->cstat = realloc(lpi->cstat, ncols * sizeof(int));
+    SCIP_ALLOC(BMSreallocMemoryArray(&lpi->cstat, ncols));
+    //lpi->cstat = realloc(lpi->cstat, ncols * sizeof(int));
     lpi->cstatsize = ncols;
     return SCIP_OKAY;
 }
@@ -1088,20 +1128,27 @@ SCIP_RETCODE SCIPlpiCreate(
 {  /*lint --e{715}*/
     //assert(sizeof(SCIP_REAL) == sizeof(scs_float)); /** 检查 SCIP 实数是否与 scs 实数类型相一致，一致才能计算。 */
     SCIPdebugMessage("calling SCIPlpiCreate()...\n");
-
     assert(lpi != NULL);
     assert(name != NULL);
-    SCIP_ALLOC(BMSallocMemory(lpi));
-    SCIPdebugMessage("Name: %s\n", name);
+    //SCIP_ALLOC(BMSallocMemory(lpi));
+    SCIP_ALLOC(BMSallocClearMemory(lpi));
     (*lpi)->name = name;
-    SCIPdebugMessage("ObjSen: %d\n", objsen);
+    SCIPdebugMessage("Name: %s\n", (*lpi)->name);
     (*lpi)->objsen = objsen;
+    SCIPdebugMessage("ObjSen: %d\n", (*lpi)->objsen);
     SCIPdebugMessage("Note that the SCIP is creating an SCS work...\n");
+    /**
     (*lpi)->scscone = (ScsCone*)calloc(1, sizeof(ScsCone));
     (*lpi)->scsdata = (ScsData*)calloc(1, sizeof(ScsData));
     (*lpi)->scsstgs = (ScsSettings*)calloc(1, sizeof(ScsSettings));
     (*lpi)->scssol = (ScsSolution*)calloc(1, sizeof(ScsSolution));
     (*lpi)->scsinfo = (ScsInfo*)calloc(1, sizeof(ScsInfo));
+    */
+    SCIP_ALLOC(BMSallocClearMemory(&(*lpi)->scscone));
+    SCIP_ALLOC(BMSallocClearMemory(&(*lpi)->scsdata));
+    SCIP_ALLOC(BMSallocClearMemory(&(*lpi)->scsstgs));
+    SCIP_ALLOC(BMSallocClearMemory(&(*lpi)->scssol));
+    SCIP_ALLOC(BMSallocClearMemory(&(*lpi)->scsinfo));
 
     /* Utility to set default settings */
     /** TODO: 修改参数 */
@@ -1116,15 +1163,18 @@ SCIP_RETCODE SCIPlpiCreate(
     /** TODO: 修改参数 */
     (*lpi)->scsstgs->eps_abs = 1e-9;
     (*lpi)->scsstgs->eps_rel = 1e-9;
+    //(*lpi)->scsstgs->max_iters = 1e8;
 
     SCIPdebugMessage("size of scs_int = %lu, size of scs_float = %lu\n", sizeof(scs_int), sizeof(scs_float));
     // 初始化列在前，初始化行在后。
+    assert((*lpi)->columns == NULL);
     init_columns(*lpi);
+    assert((*lpi)->rows == NULL);
     init_rows(*lpi);
-    (*lpi)->cstatsize = 0;
-    (*lpi)->rstatsize = 0;
+    assert((*lpi)->cstatsize == 0);
+    assert((*lpi)->rstatsize == 0);
     init_state(*lpi, get_nrows(*lpi), get_ncols(*lpi));
-    (*lpi)->nconsbycol = 0;
+    assert((*lpi)->nconsbycol == 0);
     return SCIP_OKAY;
 }
 
@@ -2136,10 +2186,12 @@ SCIP_RETCODE ConstructAMatrixRowAndCVectorElement(
     scs_float bound
 )
 {
-    (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+    SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+    //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
     (*CVector)[nvector_ptr][0] = bound;
     SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
-    (*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfColumns)[nvector_ptr]), ncols));
+    //(*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
     (*AMatrixOfColumns)[nvector_ptr][i] = elements_of_a_matrix_of_columns; //-get_column_obj_real(lpi, i);
     return SCIP_OKAY;
 }
@@ -2195,8 +2247,10 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     *nvector = get_number_of_finite_columns(lpi);
     SCIPdebugMessage("*nvector: %d\n", *nvector);
     int nvector_ptr = 0;
-    *AMatrixOfColumns = (scs_float**)calloc(*nvector, sizeof(scs_float*));
-    *CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfColumns, *nvector));
+    //*AMatrixOfColumns = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, *nvector));
+    //*CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
     for (int i = 0; i < ncols; i++)
     {
         scs_float lb = get_column_lower_bound_real(lpi, i);
@@ -2295,32 +2349,39 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
     *nvector = get_number_of_finite_rows(lpi);
     SCIPdebugMessage("*nvector: %d\n", *nvector);
     int nvector_ptr = 0;
-    *AMatrixOfRows = (scs_float**)calloc(*nvector, sizeof(scs_float*));
-    *CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfRows, *nvector));
+    //*AMatrixOfRows = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, *nvector));
+    //*CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
     const int ncols = get_ncols(lpi);
     for (int i = 0; i < get_nrows(lpi); i++)
     {
         const scs_float lhs = get_row_lhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lhs))
         {
-            (*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+            SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
+            //(*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
             for (int j = 0; j < ncols; j++)
             {
                 (*AMatrixOfRows)[nvector_ptr][j] = -get_row_obj_real(lpi, i, j);
+                // 如果存在左边界，即大于等于，则取相反数。
             }
-            (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
-            (*CVector)[nvector_ptr][0] = -lhs;
+            SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+            //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+            (*CVector)[nvector_ptr][0] = -lhs; // 如果存在左边界，即大于等于，则取相反数。
             nvector_ptr++;
         }
         const scs_float rhs = get_row_rhs_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, rhs))
         {
-            (*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+            SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
+            //(*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
             for (int j = 0; j < ncols; j++)
             {
                 (*AMatrixOfRows)[nvector_ptr][j] = get_row_obj_real(lpi, i, j);
             }
-            (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+            SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+            //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = rhs;
             nvector_ptr++;
         }
@@ -2365,10 +2426,12 @@ SCIP_RETCODE CombineTwoMatricesByRow(
     const int ncol
 )
 {
-    *matrix = (scs_float**)calloc(nrowUp + nrowBottom, sizeof(scs_float*));
+    SCIP_ALLOC(BMSallocClearMemoryArray(matrix, nrowUp + nrowBottom));
+    //*matrix = (scs_float**)calloc(nrowUp + nrowBottom, sizeof(scs_float*));
     for (int i = 0; i < nrowUp; i++)
     {
-        (*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
+        SCIP_ALLOC(BMSallocClearMemoryArray(&((*matrix)[i]), ncol));
+        //(*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
         for (int j = 0; j < ncol; j++)
         {
             (*matrix)[i][j] = matrixUp[i][j];
@@ -2376,7 +2439,8 @@ SCIP_RETCODE CombineTwoMatricesByRow(
     }
     for (int i = nrowUp; i < nrowUp + nrowBottom; i++)
     {
-        (*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
+        SCIP_ALLOC(BMSallocClearMemoryArray(&((*matrix)[i]), ncol));
+        //(*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
         for (int j = 0; j < ncol; j++)
         {
             (*matrix)[i][j] = matrixBottom[i - nrowUp][j];
@@ -2395,7 +2459,8 @@ SCIP_RETCODE CompressMatrixByRow(
 )
 {
     int nnonz = 0;
-    *p = (scs_int*)calloc(row + 1, sizeof(scs_int));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*p, row + 1));
+    //*p = (scs_int*)calloc(row + 1, sizeof(scs_int));
     for (int i = 0; i < row; i++)
     {
         for (int j = 0; j < col; j++)
@@ -2413,8 +2478,10 @@ SCIP_RETCODE CompressMatrixByRow(
         }
         (*p)[i + 1] = nnonz;
     }
-    *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
-    *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*x, nnonz));
+    //*x = (scs_float*)calloc(nnonz, sizeof(scs_float));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*ix, nnonz));
+    //*ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
     int nnonz_ptr = 0;
     for (int i = 0; i < row; i++)
     {
@@ -2456,7 +2523,8 @@ SCIP_RETCODE CompressMatrixByColumn(
 )
 {
     int nnonz = 0;
-    *p = (scs_int*)calloc(col + 1, sizeof(scs_int));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*p, col + 1));
+    //*p = (scs_int*)calloc(col + 1, sizeof(scs_int));
     for (int i = 0; i < col; i++)
     {
         for (int j = 0; j < row; j++)
@@ -2475,8 +2543,10 @@ SCIP_RETCODE CompressMatrixByColumn(
         (*p)[i + 1] = nnonz;
     }
     int nnonz_ptr = 0;
-    *x = (scs_float*)calloc(nnonz, sizeof(scs_float));
-    *ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*x, nnonz));
+    //*x = (scs_float*)calloc(nnonz, sizeof(scs_float));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*ix, nnonz));
+    //*ix = (scs_int*)calloc(nnonz, sizeof(scs_int));
     for (int i = 0; i < col; i++)
     {
         for (int j = 0; j < row; j++)
@@ -2499,10 +2569,12 @@ SCIP_RETCODE InverseMatrix(
     int col
 )
 {
-    *result = (scs_float**)calloc(col, sizeof(scs_float*));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*result, col));
+    //*result = (scs_float**)calloc(col, sizeof(scs_float*));
     for (int j = 0; j < col; j++)
     {
-        (*result)[j] = (scs_float*)calloc(row, sizeof(scs_float));
+        SCIP_ALLOC(BMSallocClearMemoryArray(&((*result)[j]), row));
+        //(*result)[j] = (scs_float*)calloc(row, sizeof(scs_float));
     }
     for (int i = 0; i < row; i++)
     {
@@ -2521,10 +2593,13 @@ SCIP_RETCODE ConstructPMatrix(
     int n
 )
 {
-    scs_float** matrix = calloc(n, sizeof(scs_float*));
+    scs_float** matrix;
+    SCIP_ALLOC(BMSallocClearMemoryArray(matrix, n));
+    //scs_float** matrix = calloc(n, sizeof(scs_float*));
     for (int i = 0; i < n; i++)
     {
-        matrix[i] = (scs_float*)calloc(n, sizeof(scs_float));
+        SCIP_ALLOC(BMSallocClearMemoryArray(&(matrix[i]), n));
+        //matrix[i] = (scs_float*)calloc(n, sizeof(scs_float));
     }
     return CompressMatrixByColumn(matrix, n, n, &*Px, &*Pi, &*Pp);
 }
@@ -2534,7 +2609,8 @@ SCIP_RETCODE ConstructCVector(
     scs_float** c
 )
 {
-    *c = (scs_float*)calloc(get_ncols(lpi), sizeof(scs_float));
+    SCIP_ALLOC(BMSallocClearMemoryArray(c, get_ncols(lpi)));
+    //*c = (scs_float*)calloc(get_ncols(lpi), sizeof(scs_float));
     for (int i = 0; i < get_ncols(lpi); i++)
     {
         (*c)[i] = (lpi->objsen == SCIP_OBJSEN_MAXIMIZE) ? (-get_column_obj_real(lpi, i)) : get_column_obj_real(lpi, i);
