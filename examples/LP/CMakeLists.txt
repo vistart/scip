@@ -13,11 +13,13 @@ endif()
 include_directories(${SCIP_INCLUDE_DIRS})
 
 add_executable(lp_problem_0 "problem_0.cpp")
+add_executable(lp_problem_0_2 "problem_0_2.cpp")
 add_executable(lp_problem_1 "problem_1.cpp")
 add_executable(lp_problem_2 "problem_2.cpp")
 add_executable(lp_problem_3 "problem_3.cpp")
 
 target_link_libraries(lp_problem_0 ${SCIP_LIBRARIES})
+target_link_libraries(lp_problem_0_2 ${SCIP_LIBRARIES})
 target_link_libraries(lp_problem_1 ${SCIP_LIBRARIES})
 target_link_libraries(lp_problem_2 ${SCIP_LIBRARIES})
 target_link_libraries(lp_problem_3 ${SCIP_LIBRARIES})
