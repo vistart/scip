@@ -2676,19 +2676,27 @@ SCIP_RETCODE MemcpyScsMatrix(
     const ScsMatrix* src
 )
 {
-    if ((*dest) == NULL)
-    {
-        (*dest) = (ScsMatrix*)malloc(sizeof(ScsMatrix));
-    } else
-    {
-        (*dest) = realloc(*dest, sizeof(ScsMatrix));
-    }
-    (*dest)->x = (scs_float*)malloc(sizeof(scs_float) * src->p[src->n]);
-    (*dest)->i = (scs_int*)malloc(sizeof(scs_int) * src->p[src->n]);
-    (*dest)->p = (scs_int*)malloc(sizeof(scs_int) * (src->n + 1));
-    memcpy((*dest)->x, src->x, sizeof(scs_float) * src->p[src->n]);
-    memcpy((*dest)->i, src->i, sizeof(scs_int) * src->p[src->n]);
-    memcpy((*dest)->p, src->p, sizeof(scs_int) * (src->n + 1));
+    assert(*dest == NULL);
+    //if ((*dest) == NULL)
+    //{
+    SCIP_ALLOC(BMSallocMemory(&*dest));
+        //(*dest) = (ScsMatrix*)malloc(sizeof(ScsMatrix));
+    //} else
+    //{
+        //(*dest) = realloc(*dest, sizeof(ScsMatrix));
+    //}
+    SCIP_ALLOC(BMSallocMemoryArray(&((*dest)->x), src->p[src->n]));
+    //(*dest)->x = (scs_float*)malloc(sizeof(scs_float) * src->p[src->n]);
+    SCIP_ALLOC(BMSallocMemoryArray(&((*dest)->i), src->p[src->n]));
+    //(*dest)->i = (scs_int*)malloc(sizeof(scs_int) * src->p[src->n]);
+    SCIP_ALLOC(BMSallocMemoryArray(&((*dest)->p), src->p[src->n + 1]));
+    //(*dest)->p = (scs_int*)malloc(sizeof(scs_int) * (src->n + 1));
+    BMScopyMemoryArray((*dest)->x, src->x, src->p[src->n]);
+    //memcpy((*dest)->x, src->x, sizeof(scs_float) * src->p[src->n]);
+    BMScopyMemoryArray((*dest)->i, src->i, src->p[src->n]);
+    //memcpy((*dest)->i, src->i, sizeof(scs_int) * src->p[src->n]);
+    BMScopyMemoryArray((*dest)->p, src->p, src->n + 1);
+    //memcpy((*dest)->p, src->p, sizeof(scs_int) * (src->n + 1));
     (*dest)->m = src->m;
     (*dest)->n = src->n;
     return SCIP_OKAY;
@@ -2707,11 +2715,15 @@ SCIP_RETCODE ConstructScsData(
     scs_float* b = NULL;
     scs_float* c = NULL;
     ConstructAMatrix(lpi, &Ax, &Ai, &Ap, &b, &c, &m, &n);
-    lpi->scsdata->b = (scs_float*)malloc(m * sizeof(scs_float));
-    memcpy(lpi->scsdata->b, b, sizeof(scs_float) * m);
+    SCIP_ALLOC(BMSallocMemoryArray(&lpi->scsdata->b, m));
+    //lpi->scsdata->b = (scs_float*)malloc(m * sizeof(scs_float));
+    BMScopyMemoryArray(lpi->scsdata->b, b, m);
+    //memcpy(lpi->scsdata->b, b, sizeof(scs_float) * m);
     BMSfreeMemoryArrayNull(&b);
-    lpi->scsdata->c = (scs_float*)malloc(n * sizeof(scs_float));
-    memcpy(lpi->scsdata->c, c, sizeof(scs_float) * n);
+    SCIP_ALLOC(BMSallocMemoryArray(&lpi->scsdata->c, n));
+    //lpi->scsdata->c = (scs_float*)malloc(n * sizeof(scs_float));
+    BMScopyMemoryArray(lpi->scsdata->c, c, n);
+    //memcpy(lpi->scsdata->c, c, sizeof(scs_float) * n);
     BMSfreeMemoryArrayNull(&c);
     lpi->scsdata->m = m;
     lpi->scsdata->n = n;
@@ -2751,7 +2763,7 @@ SCIP_RETCODE ConstructScsData(
     BMSfreeMemoryArrayNull(&Px);
     BMSfreeMemoryArrayNull(&Pi);
     BMSfreeMemoryArrayNull(&Pp);*/
-    lpi->scsdata->P = NULL;
+    lpi->scsdata->P = NULL; // SCS 约定线性问题时 P 矩阵为 NULL。
     return SCIP_OKAY;
 }
 
