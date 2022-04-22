@@ -2103,10 +2103,10 @@ SCIP_RETCODE SCIPlpiGetSides(
     assert(0 <= firstrow && firstrow <= lastrow && lastrow < get_nrows(lpi));
     for (int i = firstrow; i <= lastrow; i++)
     {
-	    if (lhss != NULL)
-	    {
+        if (lhss != NULL)
+        {
             lhss[i - firstrow] = get_row_lhs_real(lpi, i);
-	    }
+        }
         if (rhss != NULL)
         {
             rhss[i - firstrow] = get_row_rhs_real(lpi, i);
@@ -2743,7 +2743,7 @@ SCIP_RETCODE ConstructScsData(
     assert(Pp != NULL);
     ScsMatrix P = { Px, Pi, Pp, n, n};
     MemcpyScsMatrix(&lpi->scsdata->P, &P);*/
-	/**
+    /**
     lpi->scsdata->P = (ScsMatrix*)calloc(1, sizeof(P));
     memcpy(lpi->scsdata->P, &P, sizeof(P));*/
     /**
@@ -2824,28 +2824,28 @@ SCIP_RETCODE debug_print_scs_solution(
     if (lpi->scssol->s)
     {
         SCIPdebugMessage("Slack variables:\n");
-	    for (int i = 0; i < get_ncols(lpi); i++)
-	    {
+        for (int i = 0; i < get_ncols(lpi); i++)
+        {
             SCIPdebugMessage("s[%d]: %8.2f ", i, lpi->scssol->s[i]);
-	    }
+        }
         SCIPdebugMessage("\n");
     }
     if (lpi->scssol->x)
     {
         SCIPdebugMessage("Primal Solutions:\n");
-	    for (int i = 0; i < get_ncols(lpi); i++)
-	    {
+        for (int i = 0; i < get_ncols(lpi); i++)
+        {
             SCIPdebugMessage("x[%d]: %8.2f ", i, lpi->scssol->x[i]);
-	    }
+        }
         SCIPdebugMessage("\n");
     }
     if (lpi->scssol->y)
     {
         SCIPdebugMessage("Dual Solutions:\n");
-	    for (int i = 0; i < get_nrows(lpi); i++)
-	    {
+        for (int i = 0; i < get_nrows(lpi); i++)
+        {
             SCIPdebugMessage("y[%d]: %8.2f ", i, lpi->scssol->y[i + lpi->nconsbycol]);
-	    }
+        }
         SCIPdebugMessage("\n");
     }
     return SCIP_OKAY;
@@ -3295,7 +3295,7 @@ SCIP_RETCODE SCIPlpiGetSol(
     dualsol = NULL;
     activity = NULL;
     redcost = NULL;
-	*/
+    */
     if (dualsol) {
         // @TODO 转换方式存疑。
         /**
@@ -3307,10 +3307,10 @@ SCIP_RETCODE SCIPlpiGetSol(
     }
     if (activity)
     {
-	    for (int i = lpi->nconsbycol; i< get_nrows(lpi); i++)
-	    {
-		    
-	    }
+        for (int i = lpi->nconsbycol; i< get_nrows(lpi); i++)
+        {
+            
+        }
     }
     if (redcost)
     {
@@ -3411,12 +3411,15 @@ SCIP_BASESTAT getBaseOfColumn(
     SCIPdebugMessage("calling getBaseOfColumn()...\n");
     assert(lpi != NULL);
     SCIP_Real sol = get_sol_by_column(lpi, col);
-    SCIPdebugMessage("lower bound[%d], upper bound[%d]: [%8.2f, %8.2f]\n", col, col, get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
+    SCIPdebugMessage("lower bound[%d], upper bound[%d]: [%8.2f, %8.2f]\n", col, col,
+        get_column_lower_bound_real(lpi, col), get_column_upper_bound_real(lpi, col));
     SCIPdebugMessage("x[%d]: %8.2f\n", col, sol);
     SCIPdebugMessage("x - lower bound: %8.2f\n", ABS(sol - get_column_lower_bound_real(lpi, col)));
     SCIPdebugMessage("x - upper bound: %8.2f\n", ABS(sol - get_column_upper_bound_real(lpi, col)));
-    SCIPdebugMessage("x - lower bound is infinitesimal: %d\n", ISLPIINFINITESIMAL(sol - get_column_lower_bound_real(lpi, col)));
-    SCIPdebugMessage("x - upper bound is infinitesimal: %d\n", ISLPIINFINITESIMAL(sol - get_column_upper_bound_real(lpi, col)));
+    SCIPdebugMessage("x - lower bound is infinitesimal: %d\n",
+        ISLPIINFINITESIMAL(sol - get_column_lower_bound_real(lpi, col)));
+    SCIPdebugMessage("x - upper bound is infinitesimal: %d\n",
+        ISLPIINFINITESIMAL(sol - get_column_upper_bound_real(lpi, col)));
     /**
     if (ISLPIINFINITESIMAL(get_column_lower_bound_real(lpi, col)) && ISLPIINFINITESIMAL(get_column_upper_bound_real(lpi, col)))
     {
@@ -3473,7 +3476,8 @@ SCIP_BASESTAT getBaseOfRow(
     SCIPdebugMessage("calling getBaseOfRow()...\n");
     assert(lpi != NULL);
     SCIP_Real sol = get_sol_by_row(lpi, row);
-    SCIPdebugMessage("lhs[%d], rhs[%d]: [%8.2f, %8.2f]\n", row, row, get_row_lhs_real(lpi, row), get_row_rhs_real(lpi, row));
+    SCIPdebugMessage("lhs[%d], rhs[%d]: [%8.2f, %8.2f]\n", row, row, get_row_lhs_real(lpi, row),
+        get_row_rhs_real(lpi, row));
     SCIPdebugMessage("x[%d]: %8.2f\n", row, sol);
     SCIPdebugMessage("x - lhs: %8.2f\n", ABS(sol - get_row_lhs_real(lpi, row)));
     SCIPdebugMessage("x - rhs: %8.2f\n", ABS(sol - get_row_rhs_real(lpi, row)));
@@ -3683,9 +3687,7 @@ SCIP_RETCODE ensureCstatMem(
 
     if (num > lpi->cstatsize)
     {
-        int newsize;
-
-        newsize = MAX(2 * lpi->cstatsize, num);
+        int newsize = MAX(2 * lpi->cstatsize, num);
         SCIP_ALLOC(BMSreallocMemoryArray(&lpi->cstat, newsize));
         lpi->cstatsize = newsize;
     }
@@ -3705,9 +3707,7 @@ SCIP_RETCODE ensureRstatMem(
 
     if (num > lpi->rstatsize)
     {
-        int newsize;
-
-        newsize = MAX(2 * lpi->rstatsize, num);
+        int newsize = MAX(2 * lpi->rstatsize, num);
         SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rstat, newsize));
         lpi->rstatsize = newsize;
     }
@@ -3950,8 +3950,9 @@ SCIP_RETCODE SCIPlpiGetIntpar(
     case SCIP_LPPAR_LPITLIM:
         *ival = lpi->lpitlim;
         /* -1 <= ival, -1 meaning no time limit, 0 stopping immediately */
-        if (*ival == -1)
+        if (*ival == -1) {
             *ival = INT_MAX;
+        }
         break;
     case SCIP_LPPAR_PRESOLVING:
         *ival = lpi->presoving;
