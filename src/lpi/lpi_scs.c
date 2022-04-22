@@ -1740,10 +1740,11 @@ SCIP_RETCODE SCIPlpiChgBounds(
         set_column_lower_bound_real(lpi, ind[i], lb[i]);
         set_column_upper_bound_real(lpi, ind[i], ub[i]);
 #ifdef SCIP_DEBUG
+        /**
         SCIPdebugMessage("the lower bound of column[%d]: %8.2f is replaced with %8.2f\n",
             ind[i], old_lb, get_column_lower_bound_real(lpi, ind[i]));
         SCIPdebugMessage("the upper bound of column[%d]: %8.2f is replaced with %8.2f\n",
-            ind[i], old_ub, get_column_upper_bound_real(lpi, ind[i]));
+            ind[i], old_ub, get_column_upper_bound_real(lpi, ind[i]));*/
 #endif
         assert(get_column_lower_bound_real(lpi, ind[i]) <= get_column_upper_bound_real(lpi, ind[i]));
     }
@@ -2636,16 +2637,16 @@ SCIP_RETCODE ConstructAMatrix(
     assert(AMatrixOfColumns != NULL);
     assert(CVectorOfColumns != NULL);
 
-    debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
-    debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
+    //debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
+    //debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
 
     scs_float** AMatrixOfRows;
     scs_float** CVectorOfRows;
     int nvectorRow = 0;
     ConstructAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows, &nvectorRow);
 
-    debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
-    debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
+    //debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
+    //debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
 
     *m = nvectorCol + nvectorRow;
     *n = get_ncols(lpi);
@@ -2656,10 +2657,10 @@ SCIP_RETCODE ConstructAMatrix(
     CombineTwoMatricesByRow(AMatrixOfColumns, AMatrixOfRows, &AMatrix, nvectorCol, nvectorRow, *n);
     //CombineTwoMatricesByRow(AMatrixOfRows, AMatrixOfColumns, &AMatrix, nvectorRow, nvectorCol, *n);
     lpi->nconsbycol = nvectorCol;
-    debug_print_matrix_real(AMatrix, *m, *n);
+    //debug_print_matrix_real(AMatrix, *m, *n);
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
     //CombineTwoMatricesByRow(CVectorOfRows, CVectorOfColumns, &CVector, nvectorRow, nvectorCol, 1);
-    debug_print_matrix_real(CVector, *m, 1);
+    //debug_print_matrix_real(CVector, *m, 1);
 
     CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
 
@@ -2857,12 +2858,12 @@ SCIP_RETCODE scsSolve(
 {
     assert(lpi != NULL);
     ConstructScsData(lpi);
-    debug_print_scs_data(lpi);
+    //debug_print_scs_data(lpi);
     lpi->scscone->z = 0;
     lpi->scscone->l = lpi->scsdata->m;
     lpi->scswork = scs_init(lpi->scsdata, lpi->scscone, lpi->scsstgs);
     scs_int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
-    debug_print_scs_solution(lpi);
+    //debug_print_scs_solution(lpi);
     scs_finish(lpi->scswork);
     return SCIP_OKAY;
 }
