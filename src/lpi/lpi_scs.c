@@ -2731,6 +2731,9 @@ SCIP_RETCODE ConstructScsData(
     assert(Ai != NULL);
     assert(Ap != NULL);
     ScsMatrix A = { Ax, Ai, Ap, m, n };
+    if (lpi->scsdata->A != NULL) {
+        BMSfreeMemoryArrayNull(&lpi->scsdata->A);
+    }
     MemcpyScsMatrix(&lpi->scsdata->A, &A);
     /**
     lpi->scsdata->A = (ScsMatrix*)calloc(1, sizeof(A));
