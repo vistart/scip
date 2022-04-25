@@ -1220,14 +1220,14 @@ static void print_d(const ScsData* d, int nnonz) {
 static void print_sol_prim(scs_float* prim_sol, int n) {
     scs_printf("Primal Solution(s):\n");
     for (int i = 0; i < n; i++) {
-        scs_printf("x[%d]: %8.2f\n", i, prim_sol[i]);
+        scs_printf("x[%d]: %8.4f\n", i, prim_sol[i]);
     }
 }
 
 static void print_sol_dual(scs_float* dual_sol, int m) {
     scs_printf("Dual Solution(s):\n");
     for (int i = 0; i < m; i++) {
-        scs_printf("y[%d]: %8.2f\n", i, dual_sol[i]);
+        scs_printf("y[%d]: %8.4f\n", i, dual_sol[i]);
     }
 }
 
@@ -1329,7 +1329,7 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     double primsol[n];
     double dualsol[m];
     SCIP_CALL(SCIPlpiGetSol(lpi, objval, primsol, dualsol, NULL, NULL));
-    scs_printf("Objective: %8.2f\n", *objval);
+    scs_printf("Objective: %8.4f\n", *objval);
     print_sol_prim(primsol, n);
     print_sol_dual(dualsol, m);
     /**
