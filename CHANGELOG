@@ -64,12 +64,16 @@ Features
 --------
 
 - clique lifting in cons_setppc (parameter enablecliquelifting) is only disabled if it has been applied
+- avoid warning if Mosek has reached/exceeded the objective limit
 - improved curvature check for quadratic expressions when extended formulations are disabled
 
 Performance improvements
 ------------------------
 Examples and applications
 -------------------------
+
+- Fixed handling of enforcing in the TSP example.
+
 Interface changes
 -----------------
 ### New and changed callbacks
@@ -77,6 +81,9 @@ Interface changes
 ### New API functions
 ### Command line interface
 ### Interfaces to external software
+
+- Added compatibility with Mosek 10.0.13.
+
 ### Changed parameters
 ### New parameters
 ### Data structures
@@ -92,6 +99,7 @@ Build system
 
 - avoid warnings about unrecognized compiler warning silencing options when compilation with GCC fails
 - adjust mosek find module to version 9.3
+- added cmake compatibility for ipopt versions 3.14.x
 
 ### Makefile
 
@@ -106,6 +114,10 @@ Fixed bugs
 - fixed that recursive products in expressions were sometimes not flattened
 - fixed that expressions in original variables could not be simplified
 - fixed handling of objective limit with Mosek
+- made SCIPlpiGetSolverName()/SCIPlpiGetSolverDesc() thread-safe for LP Solvers (Cplex,Gurobi,Glop,Mosek,SoPlex,Xpress)
+- made SYMsymmetryGetName() thread-safe for Bliss
+- fixed memory allocation issue in detection of SOC nlhdlr
+- fixed that reaching the walltime limit in Ipopt was not handled properly
 
 Miscellaneous
 -------------
