@@ -42,7 +42,30 @@ typedef SCIP_DUALPACKET ROWPACKET;           /* each row needs two bit of inform
 
 /* globally turn off lint warnings: */
 /*lint --e{715}*/
+/**
+struct original_SCIP_Rows {
+    int nrows;
+    SCIP_Real* lhs;
+    SCIP_Real* rhs;
+    char** rownames;
+    int nnonz;
+    int* beg;
+    int* ind;
+    SCIP_Real* val;
+};
 
+struct original_SCIP_Cols {
+    int ncols;
+    SCIP_Real* obj;
+    SCIP_Real* lb;
+    SCIP_Real* ub;
+    char** colnames;
+    int nnonz;
+    int* beg;
+    int* ind;
+    SCIP_Real* val;
+};
+*/
 struct SCIP_Column
 {
     SCIP_Real obj;
@@ -71,6 +94,9 @@ struct SCIP_Rows
     struct SCIP_Row** rows_ptr;
     int                nrows;
 };
+
+#define SCIP_LPI_SOLVED     1
+#define SCIP_LPI_NOT_SOLVED 0
 
 /** LP interface */
 struct SCIP_LPi
@@ -119,6 +145,7 @@ struct SCIP_LPi
     SCIP_Longint          randomseed;
     SCIP_Longint          polishing;
     SCIP_Longint          refactor;
+    SCIP_Bool             solved;
 };
 
 /** LPi state stores basis information */
@@ -346,6 +373,24 @@ SCIP_RETCODE set_column_name(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE set_column(
+    SCIP_LPI* lpi,
+    int col,
+    SCIP_Real obj,
+    SCIP_Real lb,
+    SCIP_Real ub,
+    char* name
+)
+{
+    set_column_obj_real(lpi, col, obj);
+    set_column_lower_bound_real(lpi, col, lb);
+    set_column_upper_bound_real(lpi, col, ub);
+    if (name != NULL) {
+        set_column_name(lpi, col, name);
+    }
+    return SCIP_OKAY;
+}
+
 int get_column_integrality(
     SCIP_LPI* lpi,
     int col
@@ -416,7 +461,7 @@ SCIP_RETCODE debug_print_all_columns(
     SCIP_LPI* lpi
 )
 {
-    SCIPdebugMessage("calling debugPrintAllColumns.\n");
+    SCIPdebugMessage("calling debug_print_all_columns.\n");
     assert(lpi != NULL);
     assert(lpi->columns != NULL);
     for (int i = 0; i < lpi->columns->ncols; i++)
@@ -465,15 +510,20 @@ SCIP_RETCODE resize_columns(
 {
     assert(lpi != NULL);
     assert(lpi->columns != NULL);
-    if (lpi->columns->columns_ptr == NULL)
-    {
-        SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->columns->columns_ptr, newsize));
-        //lpi->columns->columns_ptr = (struct SCIP_Column**)calloc(newsize, sizeof(struct SCIP_Column*));
-    }
-    else if (newsize > 0)
-    {
-        SCIP_ALLOC(BMSreallocMemoryArray(&lpi->columns->columns_ptr, newsize));
-        //lpi->columns->columns_ptr = realloc(lpi->columns->columns_ptr, sizeof(struct SCIP_Column*) * newsize);
+    assert(newsize >= 0);
+    if (newsize > 0) {
+        if (lpi->columns->columns_ptr == NULL)
+        {
+            SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->columns->columns_ptr, newsize));
+            //lpi->columns->columns_ptr = (struct SCIP_Column**)calloc(newsize, sizeof(struct SCIP_Column*));
+        } else {
+            SCIP_ALLOC(BMSreallocMemoryArray(&lpi->columns->columns_ptr, newsize));
+            //lpi->columns->columns_ptr = realloc(lpi->columns->columns_ptr, sizeof(struct SCIP_Column*) * newsize);
+        }
+    } else {
+        if (lpi->columns->columns_ptr != NULL) {
+            BMSfreeMemory(&lpi->columns->columns_ptr);
+        }
     }
     lpi->columns->ncols = newsize;
     return SCIP_OKAY;
@@ -562,8 +612,9 @@ SCIP_RETCODE clear_columns(
         free_column(lpi, i);
     }
     BMSfreeMemoryNull(&lpi->columns);
+    return init_columns(lpi);
     //free(lpi->columns);
-    return SCIP_OKAY;
+    //return SCIP_OKAY;
 }
 
 /**
@@ -685,6 +736,21 @@ SCIP_RETCODE set_row_name(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE set_row(
+    SCIP_LPI* lpi,
+    int row,
+    SCIP_Real lhs,
+    SCIP_Real rhs,
+    char* name
+) {
+    if (name != NULL) {
+        set_row_name(lpi, row, name);
+    }
+    set_row_lhs_real(lpi, row, lhs);
+    set_row_rhs_real(lpi, row, rhs);
+    return SCIP_OKAY;
+}
+
 SCIP_Real get_row_obj_real(
     SCIP_LPI* lpi,
     int row,
@@ -760,15 +826,23 @@ SCIP_RETCODE resize_rows(
 {
     assert(lpi != NULL);
     assert(lpi->rows != NULL);
-    if (lpi->rows->rows_ptr == NULL)
-    {
-        SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->rows->rows_ptr, newsize));
-        //lpi->rows->rows_ptr = (struct SCIP_Row**)calloc(newsize, sizeof(struct SCIP_Row*));
+    assert(newsize >= 0);
+    if (newsize > 0) {
+        if (lpi->rows->rows_ptr == NULL)
+        {
+            SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->rows->rows_ptr, newsize));
+            //lpi->rows->rows_ptr = (struct SCIP_Row**)calloc(newsize, sizeof(struct SCIP_Row*));
+        } else
+        {
+            SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr, newsize));
+            //lpi->rows->rows_ptr = realloc(lpi->rows->rows_ptr, sizeof(struct SCIP_Row*) * newsize);
+        }
     }
-    else if (newsize > 0)
-    {
-        SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr, newsize));
-        //lpi->rows->rows_ptr = realloc(lpi->rows->rows_ptr, sizeof(struct SCIP_Row*) * newsize);
+    else {
+        if (lpi->rows->rows_ptr != NULL) {
+            //lpi->rows->rows_ptr = NULL; // 此举可能会导致内存泄漏。
+            BMSfreeMemory(&lpi->rows->rows_ptr);
+        }
     }
     lpi->rows->nrows = newsize;
     return SCIP_OKAY;
@@ -868,8 +942,9 @@ SCIP_RETCODE clear_rows(
         free_row(lpi, i);
     }
     BMSfreeMemoryNull(&lpi->rows);
+    return init_rows(lpi);
     //free(lpi->rows);
-    return SCIP_OKAY;
+    //return SCIP_OKAY;
 }
 
 SCIP_RETCODE init_state(
@@ -1135,7 +1210,7 @@ SCIP_RETCODE SCIPlpiCreate(
     (*lpi)->name = name;
     SCIPdebugMessage("Name: %s\n", (*lpi)->name);
     (*lpi)->objsen = objsen;
-    SCIPdebugMessage("ObjSen: %d\n", (*lpi)->objsen);
+    SCIPdebugMessage("ObjSen: %d (%s)\n", (*lpi)->objsen, ((*lpi)->objsen == SCIP_OBJSEN_MAXIMIZE) ? "Maximize" : ((*lpi)->objsen == SCIP_OBJSEN_MINIMIZE) ? " Minimize" : "Meaningless");
     SCIPdebugMessage("Note that the SCIP is creating an SCS work...\n");
     /**
     (*lpi)->scscone = (ScsCone*)calloc(1, sizeof(ScsCone));
@@ -1175,6 +1250,7 @@ SCIP_RETCODE SCIPlpiCreate(
     assert((*lpi)->rstatsize == 0);
     init_state(*lpi, get_nrows(*lpi), get_ncols(*lpi));
     assert((*lpi)->nconsbycol == 0);
+    assert((*lpi)->solved == SCIP_LPI_NOT_SOLVED);
     return SCIP_OKAY;
 }
 
@@ -1348,13 +1424,17 @@ SCIP_RETCODE SCIPlpiAddCols(
     assert(nnonz == 0 || val != NULL);
     assert(nnonz >= 0);
     assert(ncols >= 0);
+    SCIPdebugMessage("Params:\n");
+    SCIPdebugMessage("ncols: %d, nnonz: %d\n", ncols, nnonz);
 
 #ifndef NDEBUG
     if (nnonz > 0) {
         const int nrows = get_nrows(lpi);
+        printf("nnonz: %d\n", nnonz);
         for (int j = 0; j < nnonz; ++j)
         {
             assert(0 <= ind[j] && ind[j] < nrows);
+            printf("val[%d]: %f\n", j, val[j]);
             assert(!ISLPIINFINITESIMAL(val[j]));
             SCIPdebugMessage("beg[i], ind[i], val[i]: (%d, %d, %f)\n", beg[j], ind[j], val[j]);
         }
@@ -1406,20 +1486,31 @@ SCIP_RETCODE SCIPlpiAddCols(
  #endif*/
     int oldncols = get_ncols(lpi);
     resize_columns(lpi, oldncols + ncols);
-    for (int i = 0; i < ncols; i++)
+    int start;
+    int last;
+    int i;
+    for (i = 0; i < ncols; i++)
     {
         init_column(lpi, oldncols + i);
+        /**
         set_column_obj_real(lpi, oldncols + i, obj[i]);
         set_column_lower_bound_real(lpi, oldncols + i, lb[i]);
         set_column_upper_bound_real(lpi, oldncols + i, ub[i]);
         if (colnames != NULL) {
             set_column_name(lpi, oldncols + i, colnames[i]);
+        }*/
+        if (nnonz > 0)
+        {
+            start = beg[i];
+            last = (i == ncols - 1 ? nnonz : beg[i + 1]);
         }
+        set_column(lpi, oldncols + i, obj[i], lb[i], ub[i], colnames[i]);
     }
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
 #ifdef SCIP_DEBUG
     debug_print_all_columns(lpi);
 #endif
-    SCIPdebugMessage("calling SCIPlpiAddCols()... done!\n");
+    SCIPdebugMessage("calling SCIPlpiAddCols()... done: Cols added: %d\n", ncols);
     return SCIP_OKAY;
 }
 
@@ -1432,28 +1523,37 @@ SCIP_RETCODE SCIPlpiDelCols(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiDelCols()...\n");
     assert(lpi != NULL);
-    assert(get_ncols(lpi) >= 0);
+    int ncols = get_ncols(lpi);
+    assert(ncols >= 0);
 
     //lpi->ncols -= lastcol - firstcol + 1;
-    assert(get_ncols(lpi) >= 0);
+    if (firstcol == 0 && lastcol == ncols - 1) {
+        return clear_columns(lpi);
+    }
     for (int i = lastcol; i >= firstcol; i--)
     {
         free_column(lpi, i);
         // 将后续指针向前挪一个位置。
+        /**
         for (int j = i; j < get_ncols(lpi) - 1; j++)
         {
             lpi->columns->columns_ptr[j] = lpi->columns->columns_ptr[j + 1];
-        }
-        resize_columns(lpi, get_ncols(lpi) - 1);
+        }*/
+        //resize_columns(lpi, get_ncols(lpi) - 1);
     }
-
+    for (int j = lastcol + 1; j < ncols; j++) {
+        lpi->rows->rows_ptr[j - lastcol + firstcol - 1] = lpi->rows->rows_ptr[j];
+    }
+    resize_columns(lpi, ncols - lastcol + firstcol - 1);
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
 /** deletes columns from SCIP_LP; the new position of a column must not be greater that its old position
  *
  * @TODO
- *
+ * 该方法一般不常用，因为使用该方法删除部分列后，会重新组织列序号。此举会影响行中涉及的列。
+ * 因此，若要使用该方法，则需要自行修改受影响行的所有列序号，该方法不负责修改受影响行。
  */
 SCIP_RETCODE SCIPlpiDelColset(
     SCIP_LPI* lpi,                /**< LP interface structure */
@@ -1467,9 +1567,10 @@ SCIP_RETCODE SCIPlpiDelColset(
 
     assert(lpi != NULL);
     assert(dstat != NULL);
-    assert(get_ncols(lpi) >= 0);
+    int ncols = get_ncols(lpi);
+    assert(ncols >= 0);
 
-    for (int j = 0; j < get_ncols(lpi); ++j)
+    for (int j = 0; j < ncols; ++j)
     {
         if (dstat[j])
         {
@@ -1479,9 +1580,22 @@ SCIP_RETCODE SCIPlpiDelColset(
         else
             dstat[j] = cnt;
     }
-    //lpi->ncols -= cnt;
-    assert(get_ncols(lpi) >= 0);
-
+    for (int i = 0; i < ncols; i++) {
+        if (dstat[i] < 0) {
+            free_column(lpi, i);
+        }
+    }
+    for (int i = ncols - 2; i >= 0; i--) {
+        if (dstat[i] < 0) { // 若该行已被删，则需要将后续所有行，包括空行，均向前挪一个位置。
+            for (int j = i + 1; j < ncols; j++) {
+                lpi->columns->columns_ptr[j - 1] = lpi->columns->columns_ptr[j];
+            }
+        }
+    }
+    resize_columns(lpi, ncols - cnt);
+    assert(get_ncols(lpi) == ncols - cnt);
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
+    SCIPdebugMessage("calling SCIPlpiDelColset()... done: %d columns deleted.\n", cnt);
     return SCIP_OKAY;
 }
 
@@ -1557,6 +1671,8 @@ SCIP_RETCODE SCIPlpiAddRows(
     assert(nnonz == 0 || beg != NULL);
     assert(nnonz == 0 || ind != NULL);
     assert(nnonz == 0 || val != NULL);
+    SCIPdebugMessage("Params:\n");
+    SCIPdebugMessage("nrows: %d, nnonz: %d\n", nrows, nnonz);
 
 #ifndef NDEBUG
     /* perform check that no new columns are added - this is forbidden */
@@ -1605,11 +1721,13 @@ SCIP_RETCODE SCIPlpiAddRows(
     for (int i = 0; i < nrows; i++)
     {
         init_row(lpi, oldnrows + i);
+        /**
         if (rownames != NULL) {
             set_row_name(lpi, oldnrows + i, rownames[i]);
         }
         set_row_lhs_real(lpi, oldnrows + i, lhs[i]);
-        set_row_rhs_real(lpi, oldnrows + i, rhs[i]);
+        set_row_rhs_real(lpi, oldnrows + i, rhs[i]);*/
+        set_row(lpi, oldnrows + i, lhs[i], rhs[i], rownames[i]);
     }
 #pragma endregion
 #pragma region 为新添加的行更新变量系数
@@ -1621,7 +1739,8 @@ SCIP_RETCODE SCIPlpiAddRows(
         }
     }
 #pragma endregion
-    SCIPdebugMessage("calling SCIPlpiAddRows()... done!\n");
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
+    SCIPdebugMessage("calling SCIPlpiAddRows()... done: Rows added: %d, nnonz added %d\n", nrows, nnonz);
     return SCIP_OKAY;
 }
 
@@ -1637,19 +1756,28 @@ SCIP_RETCODE SCIPlpiDelRows(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiDelRows()...\n");
     assert(lpi != NULL);
-    assert(get_nrows(lpi) >= 0);
+    int nrows = get_nrows(lpi);
+    assert(nrows >= 0);
 
     //lpi->nrows -= lastrow - firstrow + 1;
-    assert(get_nrows(lpi) >= 0);
+    if (firstrow == 0 && lastrow == nrows - 1) { // 全删
+        return clear_rows(lpi);
+    }
     for (int i = lastrow; i >= firstrow; i--)
     {
         free_row(lpi, i);
+        /**
         for (int j = i; j < get_nrows(lpi) - 1; j++)
         {
-            lpi->rows->rows_ptr[j] = lpi->rows->rows_ptr[j + 1];
-        }
-        resize_rows(lpi, get_nrows(lpi) - 1);
+            lpi->rows->rows_ptr[j] = lpi->rows->rows_ptr[j + 1]; // 如果是删除中间行，后一个往前挪。
+        }*/
+        //resize_rows(lpi, get_nrows(lpi) - 1);
     }
+    for (int j = lastrow + 1; j < nrows; j++) {
+        lpi->rows->rows_ptr[j - lastrow + firstrow - 1] = lpi->rows->rows_ptr[j];
+    }
+    resize_rows(lpi, nrows - lastrow + firstrow - 1);
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1669,9 +1797,9 @@ SCIP_RETCODE SCIPlpiDelRowset(
 
     assert(lpi != NULL);
     assert(dstat != NULL);
-    assert(get_nrows(lpi) >= 0);
-
-    for (int i = 0; i < get_nrows(lpi); ++i)
+    int nrows = get_nrows(lpi);
+    assert(nrows >= 0);
+    for (int i = 0; i < nrows; i++)
     {
         if (dstat[i])
         {
@@ -1682,8 +1810,22 @@ SCIP_RETCODE SCIPlpiDelRowset(
             dstat[i] = cnt;
     }
     //lpi->nrows -= cnt;
-    assert(get_nrows(lpi) >= 0);
-
+    for (int i = 0; i < nrows; i++) {
+        if (dstat[i] < 0) {
+            free_row(lpi, i);
+        }
+    }
+    for (int i = nrows - 2; i >= 0; i--) {
+        if (dstat[i] < 0) { // 若该行已被删，则需要将后续所有行，包括空行，均向前挪一个位置。
+            for (int j = i + 1; j < nrows; j++) {
+                lpi->rows->rows_ptr[j - 1] = lpi->rows->rows_ptr[j];
+            }
+        }
+    }
+    resize_rows(lpi, nrows - cnt);
+    assert(get_nrows(lpi) == nrows - cnt);
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
+    SCIPdebugMessage("calling SCIPlpiDelRowset()... done: %d rows deleted.\n", cnt);
     return SCIP_OKAY;
 }
 
@@ -1702,6 +1844,7 @@ SCIP_RETCODE SCIPlpiClear(
     // 先清理行，后清理列。
     clear_rows(lpi);
     clear_columns(lpi);
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1725,12 +1868,12 @@ SCIP_RETCODE SCIPlpiChgBounds(
         assert(0 <= ind[i] && ind[i] < get_ncols(lpi));
         if (SCIPlpiIsInfinity(lpi, lb[i]))
         {
-            SCIPerrorMessage("LP Error: fixing lower bound for variable %d to infinity.\n", ind[i]);
+            SCIPdebugMessage("LP Error: fixing lower bound for variable %d to infinity.\n", ind[i]);
             return SCIP_LPERROR;
         }
         if (SCIPlpiIsInfinity(lpi, -ub[i]))
         {
-            SCIPerrorMessage("LP Error: fixing upper bound for variable %d to -infinity.\n", ind[i]);
+            SCIPdebugMessage("LP Error: fixing upper bound for variable %d to -infinity.\n", ind[i]);
             return SCIP_LPERROR;
         }
 #ifdef SCIP_DEBUG
@@ -1748,6 +1891,7 @@ SCIP_RETCODE SCIPlpiChgBounds(
 #endif
         assert(get_column_lower_bound_real(lpi, ind[i]) <= get_column_upper_bound_real(lpi, ind[i]));
     }
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1786,6 +1930,7 @@ SCIP_RETCODE SCIPlpiChgSides(
 #endif
         assert(get_row_lhs_real(lpi, ind[i]) <= get_row_rhs_real(lpi, ind[i]));
     }
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1801,7 +1946,9 @@ SCIP_RETCODE SCIPlpiChgCoef(
     assert(lpi != NULL);
     assert(0 <= row && row < get_nrows(lpi));
     assert(0 <= col && col < get_ncols(lpi));
-    return set_row_obj_real(lpi, row, col, newval);
+    set_row_obj_real(lpi, row, col, newval);
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
+    return SCIP_OKAY;
 }
 
 /** changes the objective sense */
@@ -1813,6 +1960,7 @@ SCIP_RETCODE SCIPlpiChgObjsen(
     SCIPdebugMessage("calling SCIPlpiChgObjsen()...\n");
     assert(lpi != NULL);
     lpi->objsen = objsen;
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1833,6 +1981,7 @@ SCIP_RETCODE SCIPlpiChgObj(
         assert(0 <= ind[i] && ind[i] < get_ncols(lpi));
         set_column_obj_real(lpi, ind[i], obj[i]);
     }
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1845,6 +1994,17 @@ SCIP_RETCODE SCIPlpiScaleRow(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiScaleRow()...\n");
     assert(lpi != NULL);
+    for (int i = 0; i < get_ncols(lpi); i++) {
+        set_row_obj_real(lpi, row, i, get_row_obj_real(lpi, row, i) * scaleval);
+    }
+    set_row_lhs_real(lpi, row, get_row_lhs_real(lpi, row) * scaleval);
+    set_row_rhs_real(lpi, row, get_row_rhs_real(lpi, row) * scaleval);
+    if (scaleval < 0) {
+        SCIP_Real old_rhs = get_row_rhs_real(lpi, row);
+        set_row_rhs_real(lpi, row, get_row_lhs_real(lpi, row));
+        set_row_lhs_real(lpi, row, old_rhs);
+    }
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1857,8 +2017,33 @@ SCIP_RETCODE SCIPlpiScaleCol(
     SCIP_Real             scaleval            /**< scaling multiplier */
 )
 {  /*lint --e{715}*/
-    SCIPdebugMessage("calling SCIPlpiScaleCol()...\n");
+    SCIPdebugMessage("calling SCIPlpiScaleCol()... scale: %f\n", scaleval);
     assert(lpi != NULL);
+
+    SCIPdebugMessage("old_obj: %f\n", get_column_obj_real(lpi, col));
+    set_column_obj_real(lpi, col, get_column_obj_real(lpi, col) * scaleval);
+    SCIPdebugMessage("scaled col: %f\n", get_column_obj_real(lpi, col));
+
+    SCIPdebugMessage("old_lb: %f\n", get_column_lower_bound_real(lpi, col));
+    set_column_lower_bound_real(lpi, col, get_column_lower_bound_real(lpi, col) / scaleval);
+    SCIPdebugMessage("scaled lower bound: %f\n", get_column_lower_bound_real(lpi, col));
+
+    SCIPdebugMessage("old_ub: %f\n", get_column_upper_bound_real(lpi, col));
+    set_column_upper_bound_real(lpi, col, get_column_upper_bound_real(lpi, col) / scaleval);
+    SCIPdebugMessage("scaled upper bound: %f\n", get_column_upper_bound_real(lpi, col));
+
+    if (scaleval < 0) { // 如果缩放比例为负数，则需要交换边界。
+        SCIP_Real old_ub = get_column_upper_bound_real(lpi, col);
+        set_column_upper_bound_real(lpi, col, get_column_lower_bound_real(lpi, col));
+        set_column_lower_bound_real(lpi, col, old_ub);
+        SCIPdebugMessage("The scalar is negative. The bounds should be switched.\n");
+        SCIPdebugMessage("scaled lower bound: %f\n", get_column_lower_bound_real(lpi, col));
+        SCIPdebugMessage("scaled upper bound: %f\n", get_column_upper_bound_real(lpi, col));
+    }
+    for (int i = 0; i < get_nrows(lpi); i++) {
+        set_row_obj_real(lpi, i, col, get_row_obj_real(lpi, i, col) * scaleval);
+    }
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1915,10 +2100,22 @@ SCIP_RETCODE SCIPlpiGetNNonz(
     SCIPdebugMessage("calling SCIPlpiGetNNonz()...\n");
     assert(nnonz != NULL);
     assert(lpi != NULL);
+    /**
     assert(lpi->scsdata != NULL);
     assert(lpi->scsdata->A != NULL);
     assert(lpi->scsdata->A->p != NULL);
     *nnonz = (int)(lpi->scsdata->A->p[lpi->scsdata->A->n]);
+    */
+    *nnonz = 0;
+    // 以下方法有待优化：在添加删除行时增减非零元素数，而非直接数个数。
+    for (int i = 0; i < get_nrows(lpi); i++) {
+        for (int j = 0; j < get_ncols(lpi); j++) {
+            if (get_row_obj_real(lpi, i, j) != 0) {
+                ++*nnonz;
+            }
+        }
+    }
+    SCIPdebugMessage("nnonz: %d\n", *nnonz);
     return SCIP_OKAY;
 }
 
@@ -1938,8 +2135,26 @@ SCIP_RETCODE SCIPlpiGetCols(
     SCIP_Real* val     /**< buffer to store values of constraint matrix entries, or NULL */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetCols()...\n");
+    assert(lpi != NULL);
+    assert(firstcol >= 0);
+    assert(lastcol < get_ncols(lpi));
+    assert(firstcol <= lastcol);
+    if (lb != NULL) {
+        for (int i = firstcol; i <= lastcol; i++) {
+            lb[i - firstcol] = get_column_lower_bound_real(lpi, i);
+        }
+    }
+    if (ub != NULL) {
+        for (int i = firstcol; i <= lastcol; i++) {
+            ub[i - firstcol] = get_column_upper_bound_real(lpi, i);
+        }
+    }
+    return SCIP_OKAY;
+    /**
+    SCIPerrorMessage("calling SCIPlpiGetCols()... not implemented.\n");
     errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    return SCIP_PLUGINNOTFOUND;*/
 }
 
 /** gets rows from LP problem object; the arrays have to be large enough to store all values.
@@ -1958,8 +2173,50 @@ SCIP_RETCODE SCIPlpiGetRows(
     SCIP_Real* val       /**< buffer to store values of constraint matrix entries, or NULL */
 )
 {  /*lint --e{715}*/
+    SCIPdebugMessage("calling SCIPlpiGetRows()...\n");
+    assert(lpi != NULL);
+    assert(firstrow >= 0);
+    assert(lastrow < get_nrows(lpi));
+    assert(firstrow <= lastrow);
+    if (lhs != NULL) {
+        for (int i = firstrow; i <= lastrow; i++) {
+            lhs[i - firstrow] = get_row_lhs_real(lpi, i);
+        }
+    }
+    if (rhs != NULL) {
+        for (int i = firstrow; i <= lastrow; i++) {
+            rhs[i - firstrow] = get_row_rhs_real(lpi, i);
+        }
+    }
+    if (nnonz == NULL) {
+        return SCIP_OKAY;
+    }
+    *nnonz = 0;
+    int last_beg_row = -1;
+    int beg_pos = 0;
+    int ind_pos = 0;
+    if (nnonz != NULL && beg != NULL && ind != NULL && val != NULL) {
+        for (int i = firstrow; i <= lastrow; i++) {
+            for (int j = 0; j < get_ncols(lpi); j++) {
+                SCIP_Real obj = get_row_obj_real(lpi, i, j);
+                if (obj != 0) {
+                    if (last_beg_row != i) {
+                        last_beg_row = i;
+                        beg[beg_pos] = *nnonz;
+                        beg_pos++;
+                    }
+                    ind[*nnonz] = j;
+                    val[*nnonz] = obj;
+                    ++*nnonz;
+                }
+            }
+        }
+    }
+    return SCIP_OKAY;
+    /**
+    SCIPerrorMessage("calling SCIPlpiGetRows()... not implemented.\n");
     errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    return SCIP_PLUGINNOTFOUND;*/
 }
 
 /** gets column names */
@@ -2715,12 +2972,12 @@ SCIP_RETCODE ConstructScsData(
     scs_float* b = NULL;
     scs_float* c = NULL;
     ConstructAMatrix(lpi, &Ax, &Ai, &Ap, &b, &c, &m, &n);
-    SCIP_ALLOC(BMSallocMemoryArray(&lpi->scsdata->b, m));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->scsdata->b, m));
     //lpi->scsdata->b = (scs_float*)malloc(m * sizeof(scs_float));
     BMScopyMemoryArray(lpi->scsdata->b, b, m);
     //memcpy(lpi->scsdata->b, b, sizeof(scs_float) * m);
     BMSfreeMemoryArrayNull(&b);
-    SCIP_ALLOC(BMSallocMemoryArray(&lpi->scsdata->c, n));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->scsdata->c, n));
     //lpi->scsdata->c = (scs_float*)malloc(n * sizeof(scs_float));
     BMScopyMemoryArray(lpi->scsdata->c, c, n);
     //memcpy(lpi->scsdata->c, c, sizeof(scs_float) * n);
@@ -2880,6 +3137,7 @@ SCIP_RETCODE scsSolve(
     scs_int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
     //debug_print_scs_solution(lpi);
     scs_finish(lpi->scswork);
+    lpi->solved = SCIP_LPI_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -2950,6 +3208,7 @@ SCIP_RETCODE SCIPlpiStrongbranchFrac(
     assert(up != NULL);
     assert(downvalid != NULL);
     assert(upvalid != NULL);
+    SCIPerrorMessage("calling SCIPlpiStrongbranchFrac()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -2978,6 +3237,7 @@ SCIP_RETCODE SCIPlpiStrongbranchesFrac(
     assert(up != NULL);
     assert(downvalid != NULL);
     assert(upvalid != NULL);
+    SCIPerrorMessage("calling SCIPlpiStrongbranchesFrac()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3003,6 +3263,7 @@ SCIP_RETCODE SCIPlpiStrongbranchInt(
     assert(up != NULL);
     assert(downvalid != NULL);
     assert(upvalid != NULL);
+    SCIPerrorMessage("calling SCIPlpiStrongbranchInt()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3031,6 +3292,7 @@ SCIP_RETCODE SCIPlpiStrongbranchesInt(
     assert(up != NULL);
     assert(downvalid != NULL);
     assert(upvalid != NULL);
+    SCIPerrorMessage("calling SCIPlpiStrongbranchesInt()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3052,7 +3314,9 @@ SCIP_Bool SCIPlpiWasSolved(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE;
+    SCIPdebugMessage("SCS status code: %d\n", lpi->scsinfo->status_val);
+    return lpi->solved == SCIP_LPI_SOLVED;
+    //return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE;
 }
 
 /** gets information about primal and dual feasibility of the current LP solution
@@ -3088,7 +3352,7 @@ SCIP_Bool SCIPlpiExistsPrimalRay(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    errorMessageAbort();
+    //errorMessageAbort();
     return FALSE;
 }
 
@@ -3100,7 +3364,7 @@ SCIP_Bool SCIPlpiHasPrimalRay(
 )
 {  /*lint --e{715}*/
     assert(lpi != NULL);
-    errorMessageAbort();
+    //errorMessageAbort();
     return FALSE;
 }
 
@@ -3253,6 +3517,7 @@ int SCIPlpiGetInternalStatus(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
+    printf("Solving Status: %d\n", lpi->solved);
     return lpi->scsinfo->status_val;
 }
 
@@ -3264,6 +3529,7 @@ SCIP_RETCODE SCIPlpiIgnoreInstability(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(success != NULL);
+    SCIPerrorMessage("calling SCIPlpiIgnoreInstablity()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3346,6 +3612,7 @@ SCIP_RETCODE SCIPlpiGetPrimalRay(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(ray != NULL);
+    SCIPerrorMessage("calling SCIPlpiGetPrimalRay()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3358,6 +3625,7 @@ SCIP_RETCODE SCIPlpiGetDualfarkas(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(dualfarkas != NULL);
+    SCIPerrorMessage("calling SCIPlpiGetDualfarkas()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3639,6 +3907,7 @@ SCIP_RETCODE SCIPlpiGetBInvCol(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(coef != NULL);
+    SCIPerrorMessage("calling SCIPlpiGetBInvCol()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3661,6 +3930,7 @@ SCIP_RETCODE SCIPlpiGetBInvARow(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(coef != NULL);
+    SCIPerrorMessage("calling SCIPlpiGetBInvARow()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3682,6 +3952,7 @@ SCIP_RETCODE SCIPlpiGetBInvACol(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(coef != NULL);
+    SCIPerrorMessage("calling SCIPlpiGetBInvACol()... not implemented.\n");
     errorMessage();
     return SCIP_PLUGINNOTFOUND;
 }
@@ -3861,8 +4132,9 @@ SCIP_RETCODE SCIPlpiReadState(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(fname != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    SCIPerrorMessage("calling SCIPlpiReadState()... not implemented.\n");
+    //errorMessage();
+    return SCIP_NOTIMPLEMENTED;
 }
 
 /** writes LPi state (i.e. basis information) to a file */
@@ -3873,8 +4145,9 @@ SCIP_RETCODE SCIPlpiWriteState(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(fname != NULL);
-    errorMessage();
-    return SCIP_PLUGINNOTFOUND;
+    SCIPerrorMessage("calling SCIPlpiWriteState()... not implemented.\n");
+    //errorMessage();
+    return SCIP_NOTIMPLEMENTED;
 }
 
 /**@} */
