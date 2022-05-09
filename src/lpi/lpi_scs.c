@@ -1486,8 +1486,6 @@ SCIP_RETCODE SCIPlpiAddCols(
  #endif*/
     int oldncols = get_ncols(lpi);
     resize_columns(lpi, oldncols + ncols);
-    int start;
-    int last;
     int i;
     for (i = 0; i < ncols; i++)
     {
@@ -1499,12 +1497,20 @@ SCIP_RETCODE SCIPlpiAddCols(
         if (colnames != NULL) {
             set_column_name(lpi, oldncols + i, colnames[i]);
         }*/
-        if (nnonz > 0)
-        {
+        set_column(lpi, oldncols + i, obj[i], lb[i], ub[i], colnames == NULL ? NULL : colnames[i]);
+    }
+    int start;
+    int last;
+    if (nnonz > 0) {
+        for (i = 0; i < ncols; i++) {
             start = beg[i];
             last = (i == ncols - 1 ? nnonz : beg[i + 1]);
+            for (int j = start; j < last; j++) {
+                //printf("row[%d] to be set: %f, before: %f\n", ind[j], val[j], get_row_obj_real(lpi, ind[j], oldncols + i));
+                set_row_obj_real(lpi, ind[j], oldncols + i, val[j]);
+                //printf("row[%d] now: %f\n", get_row_obj_real(lpi, ind[j], oldncols + i));
+            }
         }
-        set_column(lpi, oldncols + i, obj[i], lb[i], ub[i], colnames[i]);
     }
     lpi->solved = SCIP_LPI_NOT_SOLVED;
 #ifdef SCIP_DEBUG
@@ -1727,15 +1733,17 @@ SCIP_RETCODE SCIPlpiAddRows(
         }
         set_row_lhs_real(lpi, oldnrows + i, lhs[i]);
         set_row_rhs_real(lpi, oldnrows + i, rhs[i]);*/
-        set_row(lpi, oldnrows + i, lhs[i], rhs[i], rownames[i]);
+        set_row(lpi, oldnrows + i, lhs[i], rhs[i], rownames == NULL ? NULL : rownames[i]);
     }
 #pragma endregion
 #pragma region 为新添加的行更新变量系数
-    for (int i = 0; i < nrows; i++)
-    {
-        for (int j = beg[i]; (i + 1 < nrows) ? (j < beg[i + 1]) : (j < nnonz); j++)
+    if (nnonz > 0) {
+        for (int i = 0; i < nrows; i++)
         {
-            set_row_obj_real(lpi, oldnrows + i, ind[j], val[j]);
+            for (int j = beg[i]; (i + 1 < nrows) ? (j < beg[i + 1]) : (j < nnonz); j++)
+            {
+                set_row_obj_real(lpi, oldnrows + i, ind[j], val[j]);
+            }
         }
     }
 #pragma endregion
@@ -2148,6 +2156,30 @@ SCIP_RETCODE SCIPlpiGetCols(
     if (ub != NULL) {
         for (int i = firstcol; i <= lastcol; i++) {
             ub[i - firstcol] = get_column_upper_bound_real(lpi, i);
+        }
+    }
+    if (nnonz == NULL) {
+        return SCIP_OKAY;
+    }
+    *nnonz = 0;
+    int last_beg_row = -1;
+    int beg_pos = 0;
+    int ind_pos = 0;
+    if (nnonz != NULL && beg != NULL && ind != NULL && val != NULL) {
+        for (int i = 0; i < get_nrows(lpi); i++) {
+            for (int j = firstcol; j <= lastcol; j++) {
+                SCIP_Real obj = get_row_obj_real(lpi, i, j);
+                if (obj != 0) {
+                    if (last_beg_row != i) {
+                        last_beg_row = i;
+                        beg[beg_pos] = *nnonz;
+                        beg_pos++;
+                    }
+                    ind[*nnonz] = j;
+                    val[*nnonz] = obj;
+                    ++* nnonz;
+                }
+            }
         }
     }
     return SCIP_OKAY;
