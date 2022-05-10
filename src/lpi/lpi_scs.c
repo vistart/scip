@@ -168,6 +168,14 @@ struct SCIP_LPiNorms
 /*
  * Local Methods
  */
+ /** marks the current LP to be unsolved */
+static
+void invalidateSolution(SCIP_LPI* lpi)
+{
+    assert(lpi != NULL);
+    lpi->solved = SCIP_LPI_NOT_SOLVED;
+}
+
  /** error handling method */
 static
 void errorMessageAbort(
@@ -1386,7 +1394,7 @@ SCIP_RETCODE SCIPlpiLoadColLP(
     assert(val != NULL);
     assert(get_ncols(lpi) >= 0);
     assert(get_nrows(lpi) >= 0);
-
+    invalidateSolution(lpi);
     return SCIP_OKAY;
 }
 /**
@@ -1477,7 +1485,7 @@ SCIP_RETCODE SCIPlpiAddCols(
     assert(ncols >= 0);
     SCIPdebugMessage("Params:\n");
     SCIPdebugMessage("ncols: %d, nnonz: %d\n", ncols, nnonz);
-
+    invalidateSolution(lpi);
 #ifndef NDEBUG
     if (nnonz > 0) {
         const int nrows = get_nrows(lpi);
@@ -1564,7 +1572,6 @@ SCIP_RETCODE SCIPlpiAddCols(
             }
         }
     }
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
 #ifdef SCIP_DEBUG
     debug_print_all_columns(lpi);
 #endif
@@ -1583,6 +1590,7 @@ SCIP_RETCODE SCIPlpiDelCols(
     assert(lpi != NULL);
     int ncols = get_ncols(lpi);
     assert(ncols >= 0);
+    invalidateSolution(lpi);
 
     //lpi->ncols -= lastcol - firstcol + 1;
     if (firstcol == 0 && lastcol == ncols - 1) {
@@ -1603,7 +1611,6 @@ SCIP_RETCODE SCIPlpiDelCols(
         lpi->rows->rows_ptr[j - lastcol + firstcol - 1] = lpi->rows->rows_ptr[j];
     }
     resize_columns(lpi, ncols - lastcol + firstcol - 1);
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1627,6 +1634,7 @@ SCIP_RETCODE SCIPlpiDelColset(
     assert(dstat != NULL);
     int ncols = get_ncols(lpi);
     assert(ncols >= 0);
+    invalidateSolution(lpi);
 
     for (int j = 0; j < ncols; ++j)
     {
@@ -1652,7 +1660,6 @@ SCIP_RETCODE SCIPlpiDelColset(
     }
     resize_columns(lpi, ncols - cnt);
     assert(get_ncols(lpi) == ncols - cnt);
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     SCIPdebugMessage("calling SCIPlpiDelColset()... done: %d column(s) deleted.\n", cnt);
     return SCIP_OKAY;
 }
@@ -1729,6 +1736,7 @@ SCIP_RETCODE SCIPlpiAddRows(
     assert(nnonz == 0 || beg != NULL);
     assert(nnonz == 0 || ind != NULL);
     assert(nnonz == 0 || val != NULL);
+    invalidateSolution(lpi);
     SCIPdebugMessage("Params:\n");
     SCIPdebugMessage("nrows: %d, nnonz: %d\n", nrows, nnonz);
 
@@ -1799,7 +1807,6 @@ SCIP_RETCODE SCIPlpiAddRows(
         }
     }
 #pragma endregion
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     SCIPdebugMessage("calling SCIPlpiAddRows()... done: Rows added: %d, nnonz added %d\n", nrows, nnonz);
     return SCIP_OKAY;
 }
@@ -1821,6 +1828,7 @@ SCIP_RETCODE SCIPlpiDelRows(
     assert(nrows >= 0);
     assert(lastrow < nrows);
     assert(firstrow <= lastrow);
+    invalidateSolution(lpi);
 
     //lpi->nrows -= lastrow - firstrow + 1;
     if (firstrow == 0 && lastrow == nrows - 1) { // 全删
@@ -1840,7 +1848,6 @@ SCIP_RETCODE SCIPlpiDelRows(
         lpi->rows->rows_ptr[j - lastrow + firstrow - 1] = lpi->rows->rows_ptr[j];
     }
     resize_rows(lpi, nrows - lastrow + firstrow - 1);
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1862,6 +1869,7 @@ SCIP_RETCODE SCIPlpiDelRowset(
     assert(dstat != NULL);
     int nrows = get_nrows(lpi);
     assert(nrows >= 0);
+    invalidateSolution(lpi);
     for (int i = 0; i < nrows; i++)
     {
         if (dstat[i])
@@ -1892,7 +1900,6 @@ SCIP_RETCODE SCIPlpiDelRowset(
         resize_rows(lpi, nrows - cnt);
     }
     assert(get_nrows(lpi) == nrows - cnt);
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     SCIPdebugMessage("calling SCIPlpiDelRowset()... done: %d row(s) deleted.\n", cnt);
     return SCIP_OKAY;
 }
@@ -1909,10 +1916,10 @@ SCIP_RETCODE SCIPlpiClear(
     assert(lpi != NULL);
     assert(get_nrows(lpi) >= 0);
     assert(get_ncols(lpi) >= 0);
+    invalidateSolution(lpi);
     // 先清理行，后清理列。
     clear_rows(lpi);
     clear_columns(lpi);
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1927,6 +1934,7 @@ SCIP_RETCODE SCIPlpiChgBounds(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiChgBounds()...\n");
     assert(ncols == 0 || (ind != NULL && lb != NULL && ub != NULL));
+    invalidateSolution(lpi);
 
     if (ncols <= 0) {
         return SCIP_OKAY;
@@ -1959,7 +1967,6 @@ SCIP_RETCODE SCIPlpiChgBounds(
 #endif
         assert(get_column_lower_bound_real(lpi, ind[i]) <= get_column_upper_bound_real(lpi, ind[i]));
     }
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -1981,6 +1988,7 @@ SCIP_RETCODE SCIPlpiChgSides(
     {
         return SCIP_OKAY;
     }
+    invalidateSolution(lpi);
     for (int i = 0; i < nrows; i++)
     {
         assert(0 <= ind[i] && ind[i] < get_nrows(lpi));
@@ -1998,7 +2006,6 @@ SCIP_RETCODE SCIPlpiChgSides(
 #endif
         assert(get_row_lhs_real(lpi, ind[i]) <= get_row_rhs_real(lpi, ind[i]));
     }
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -2014,8 +2021,8 @@ SCIP_RETCODE SCIPlpiChgCoef(
     assert(lpi != NULL);
     assert(0 <= row && row < get_nrows(lpi));
     assert(0 <= col && col < get_ncols(lpi));
+    invalidateSolution(lpi);
     set_row_obj_real(lpi, row, col, newval);
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -2027,8 +2034,8 @@ SCIP_RETCODE SCIPlpiChgObjsen(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiChgObjsen()...\n");
     assert(lpi != NULL);
+    invalidateSolution(lpi);
     lpi->objsen = objsen;
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -2044,12 +2051,12 @@ SCIP_RETCODE SCIPlpiChgObj(
     assert(lpi != NULL);
     assert(ind != NULL);
     assert(obj != NULL);
+    invalidateSolution(lpi);
     for (int i = 0; i < ncols; i++)
     {
         assert(0 <= ind[i] && ind[i] < get_ncols(lpi));
         set_column_obj_real(lpi, ind[i], obj[i]);
     }
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -2062,6 +2069,7 @@ SCIP_RETCODE SCIPlpiScaleRow(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiScaleRow()...\n");
     assert(lpi != NULL);
+    invalidateSolution(lpi);
     for (int i = 0; i < get_ncols(lpi); i++) {
         set_row_obj_real(lpi, row, i, get_row_obj_real(lpi, row, i) * scaleval);
     }
@@ -2072,7 +2080,6 @@ SCIP_RETCODE SCIPlpiScaleRow(
         set_row_rhs_real(lpi, row, get_row_lhs_real(lpi, row));
         set_row_lhs_real(lpi, row, old_rhs);
     }
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -2087,6 +2094,7 @@ SCIP_RETCODE SCIPlpiScaleCol(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiScaleCol()... scale: %f\n", scaleval);
     assert(lpi != NULL);
+    invalidateSolution(lpi);
 
     SCIPdebugMessage("old_obj: %f\n", get_column_obj_real(lpi, col));
     set_column_obj_real(lpi, col, get_column_obj_real(lpi, col) * scaleval);
@@ -2111,7 +2119,6 @@ SCIP_RETCODE SCIPlpiScaleCol(
     for (int i = 0; i < get_nrows(lpi); i++) {
         set_row_obj_real(lpi, i, col, get_row_obj_real(lpi, i, col) * scaleval);
     }
-    lpi->solved = SCIP_LPI_NOT_SOLVED;
     return SCIP_OKAY;
 }
 
@@ -3240,6 +3247,7 @@ SCIP_RETCODE scsSolve(
 )
 {
     assert(lpi != NULL);
+    invalidateSolution(lpi);
     ConstructScsData(lpi);
     //debug_print_scs_data(lpi);
     lpi->scscone->z = 0;
@@ -3937,6 +3945,7 @@ SCIP_RETCODE SCIPlpiSetBase(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiSetBase()...\n");
     assert(lpi != NULL);
+    invalidateSolution(lpi);
     const int ncols = get_ncols(lpi);
     const int nrows = get_nrows(lpi);
     assert(cstat != NULL || ncols == 0);
