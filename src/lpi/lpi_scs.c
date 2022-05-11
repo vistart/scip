@@ -1338,7 +1338,7 @@ SCIP_RETCODE SCIPlpiFree(
     BMSfreeMemoryArrayNull(&(*lpi)->scssol->y);
     BMSfreeMemoryArrayNull(&(*lpi)->scssol->s);
     BMSfreeMemory(&((*lpi)->scssol));
-
+   
     BMSfreeMemory(lpi);
 
     return SCIP_OKAY;
@@ -1392,9 +1392,29 @@ SCIP_RETCODE SCIPlpiLoadColLP(
     assert(beg != NULL);
     assert(ind != NULL);
     assert(val != NULL);
-    assert(get_ncols(lpi) >= 0);
-    assert(get_nrows(lpi) >= 0);
     invalidateSolution(lpi);
+    clear_rows(lpi);
+    clear_columns(lpi);
+
+    lpi->objsen = objsen;
+    int oldnrows = get_nrows(lpi);
+    assert(get_ncols(lpi) >= 0);
+    assert(oldnrows >= 0);
+    resize_rows(lpi, oldnrows + nrows);
+    for (int i = 0; i < nrows; i++)
+    {
+        init_row(lpi, oldnrows + i);
+        /**
+        if (rownames != NULL) {
+            set_row_name(lpi, oldnrows + i, rownames[i]);
+        }
+        set_row_lhs_real(lpi, oldnrows + i, lhs[i]);
+        set_row_rhs_real(lpi, oldnrows + i, rhs[i]);*/
+        set_row(lpi, oldnrows + i, lhs[i], rhs[i], rownames == NULL ? NULL : rownames[i]);
+    }
+
+    /* create column vectors with coefficients and bounds */
+    SCIP_CALL(SCIPlpiAddCols(lpi, ncols, obj, lb, ub, colnames, nnonz, beg, ind, val));
     return SCIP_OKAY;
 }
 /**
@@ -1474,7 +1494,7 @@ SCIP_RETCODE SCIPlpiAddCols(
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiAddCols()...\n");
     assert(lpi != NULL);
-    assert(get_ncols(lpi) >= 0);
+    //assert(get_ncols(lpi) >= 0);
     assert(obj != NULL);
     assert(lb != NULL);
     assert(ub != NULL);
@@ -3254,7 +3274,7 @@ SCIP_RETCODE scsSolve(
     lpi->scscone->l = lpi->scsdata->m;
     lpi->scswork = scs_init(lpi->scsdata, lpi->scscone, lpi->scsstgs);
     scs_int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
-    //debug_print_scs_solution(lpi);
+    debug_print_scs_solution(lpi);
     scs_finish(lpi->scswork);
     lpi->solved = SCIP_LPI_SOLVED;
     return SCIP_OKAY;
@@ -3458,8 +3478,10 @@ SCIP_RETCODE SCIPlpiGetSolFeasibility(
     assert(lpi->scsinfo != NULL);
     assert(primalfeasible != NULL);
     assert(dualfeasible != NULL);
-    *primalfeasible = !SCIPlpiIsInfinity(lpi, lpi->scsinfo->pobj); 
-    *dualfeasible = !SCIPlpiIsInfinity(lpi, lpi->scsinfo->dobj);
+    *primalfeasible = (lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE);
+    *dualfeasible = *primalfeasible;
+    //*primalfeasible = !SCIPlpiIsInfinity(lpi, lpi->scsinfo->pobj); 
+    //*dualfeasible = !SCIPlpiIsInfinity(lpi, lpi->scsinfo->dobj);
     return SCIP_OKAY;
 }
 
@@ -3494,7 +3516,7 @@ SCIP_Bool SCIPlpiIsPrimalUnbounded(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_UNBOUNDED;
+    return lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
 }
 
 /** returns TRUE iff LP is proven to be primal infeasible */
@@ -3504,7 +3526,7 @@ SCIP_Bool SCIPlpiIsPrimalInfeasible(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return SCIPlpiIsInfinity(lpi, lpi->scsinfo->pobj);
+    return !SCIPlpiIsPrimalFeasible(lpi);
 }
 
 /** returns TRUE iff LP is proven to be primal feasible */
@@ -3514,7 +3536,7 @@ SCIP_Bool SCIPlpiIsPrimalFeasible(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE;
+    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
 }
 
 /** returns TRUE iff LP is proven to have a dual unbounded ray (but not necessary a dual feasible point);
@@ -3546,7 +3568,7 @@ SCIP_Bool SCIPlpiIsDualUnbounded(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_UNBOUNDED;
+    return lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
 }
 
 /** returns TRUE iff LP is proven to be dual infeasible */
@@ -3556,7 +3578,7 @@ SCIP_Bool SCIPlpiIsDualInfeasible(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return SCIPlpiIsInfinity(lpi, lpi->scsinfo->dobj);
+    return !SCIPlpiIsDualFeasible(lpi);
 }
 
 /** returns TRUE iff LP is proven to be dual feasible */
@@ -3566,7 +3588,7 @@ SCIP_Bool SCIPlpiIsDualFeasible(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE;
+    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
 }
 
 /** returns TRUE iff LP was solved to optimality */
@@ -3977,9 +3999,25 @@ SCIP_RETCODE SCIPlpiGetBasisInd(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(bind != NULL);
+    /**
     for (int i = 0; i < get_nrows(lpi); i++)
     {
         bind[i] = i;
+    }*/
+    int pos = 0;
+    for (int i = 0; i < get_nrows(lpi); i++)
+    {
+        if (getBaseOfRow(lpi, i) == SCIP_BASESTAT_BASIC) {
+            bind[pos] = -1 - i;
+            pos++;
+        }
+    }
+    for (int i = 0; i < get_ncols(lpi); i++)
+    {
+        if (getBaseOfColumn(lpi, i) == SCIP_BASESTAT_BASIC) {
+            bind[pos] = i;
+            pos++;
+        }
     }
     return SCIP_OKAY;
 }
