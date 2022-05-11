@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.12)
 
 # option() honors normal variables.
 if(POLICY CMP0077)
@@ -34,6 +34,7 @@ elseif(SCIP_DEBUG STREQUAL more)
     message(STATUS "SCIP_DEBUG & SCIP_MORE_DEBUG on")
     add_compile_definitions(SCIP_DEBUG)
     add_compile_definitions(SCIP_MORE_DEBUG)
+    add_compile_definitions(ENABLE_MEMLIST_CHECKS)
 elseif(SCIP_DEBUG STREQUAL moreonly)
     message(STATUS "SCIP_MORE_DEBUG on only")
     add_compile_definitions(SCIP_MORE_DEBUG)
