@@ -33,7 +33,7 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     SCIP_CALL(SCIPaddCoefLinear(scip, cons2, x2, 1.0));
     SCIP_CALL( SCIPaddCons(scip, cons2));
 
-    SCIP_CONS* cons3 = nullptr;;
+    SCIP_CONS* cons3 = nullptr;
     SCIP_CALL(SCIPcreateConsBasicLinear(scip,&cons3,"cons3",0,nullptr,nullptr,-SCIPinfinity(scip),-2.0));
     SCIP_CALL( SCIPaddCoefLinear(scip, cons3, x1, 1.0));
     SCIP_CALL( SCIPaddCoefLinear(scip, cons3, x2, -4.0));

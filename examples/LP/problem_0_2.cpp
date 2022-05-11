@@ -90,7 +90,17 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
 
     SCIP_CALL(SCIPlpiGetBase(lpi, cstats, rstats));
     printf("(%d, %d, %d), (%d, %d, %d)\n", cstats[0], cstats[1], cstats[2], rstats[0], rstats[1], rstats[2]);
+    int bind[3];
+    SCIP_CALL(SCIPlpiGetBasisInd(lpi, bind));
+    printf("(%d, %d, %d)\n", bind[0], bind[1], bind[2]);
 
+    for (int i = 0; i < 3; i++) {
+        SCIP_Real coef[3];
+        int inds[3];
+        int ninds[3];
+        SCIP_CALL(SCIPlpiGetBInvRow(lpi, i, coef, inds, ninds));
+        printf("row[%d]: %f, %d, %d\n", i, coef[0], inds[0], ninds[0]);
+    }
     return SCIP_OKAY;
 }
 

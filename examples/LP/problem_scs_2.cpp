@@ -18,9 +18,9 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     ScsSolution* opt_sol = (ScsSolution*)scs_calloc(1, sizeof(ScsSolution));
     ScsInfo info = { 0 };
     const scs_float p_f = 0.1;
-    int seed = 1234;
-    const scs_int n = 4000;
-    const scs_int m = 8000;
+    int seed = 12341;
+    const scs_int n = 500;
+    const scs_int m = 1000;
     const scs_int col_nnz = (scs_int)ceil(sqrt(n));
     const scs_int nnz = n * col_nnz;
     scs_int exitflag;
@@ -35,7 +35,7 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     d->n = n;
     gen_random_prob_data(nnz, col_nnz, d, k, opt_sol, seed);
     print_d(d, nnz);
-
+    
     SCIP_LPI* lpi;
     SCIP_CALL(SCIPlpiCreate(&lpi, NULL, "prob", SCIP_OBJSEN_MINIMIZE));
     double lb = -SCIPlpiInfinity(lpi);
@@ -56,6 +56,7 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
             it->second.push_back({v, d->A->x[j]});
         }
     }
+    
     for (auto i = cons.begin(); i != cons.end(); i++) {
         int beg = 0;
         int ind[i->second.size()];
@@ -108,7 +109,7 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     double primsol[n];
     double dualsol[m];
     SCIP_CALL(SCIPlpiGetSol(lpi, objval, primsol, dualsol, NULL, NULL));
-    scs_printf("Objective: %8.4f\n", *objval);
+    scs_printf("Objective: %f\n", *objval);
     print_sol_prim(primsol, n);
     print_sol_dual(dualsol, m);
     /**
@@ -133,6 +134,66 @@ SCIP_RETCODE execmain(int argc, const char** argv) {
     SCS(free_sol)(sol);
     SCS(free_sol)(opt_sol);
     scs_free(stgs);*/
+
+    SCIP* scip = nullptr;
+    SCIP_CALL(SCIPcreate(&scip));
+    SCIP_CALL(SCIPincludeDefaultPlugins(scip));
+    SCIP_CALL(SCIPcreateProbBasic(scip, "SCIP_scs_example_random_2"));
+    SCIP_CALL(SCIPsetObjsense(scip, SCIP_OBJSENSE_MINIMIZE));
+
+    SCIP_VAR** x = (SCIP_VAR**)calloc(sizeof(SCIP_VAR*), n);
+    //SCIP_CALL(BMSallocMemoryArray(x, cons.size()));
+
+    for (int i = 0; i < n; i++) {
+        char name[10];
+        sprintf(name, "x%d", i);
+        SCIP_CALL(SCIPcreateVarBasic(scip, &x[i], name, -SCIPinfinity(scip), SCIPinfinity(scip), d->c[i], SCIP_VARTYPE_CONTINUOUS));
+        SCIP_CALL(SCIPaddVar(scip, x[i]));
+    }
+    SCIP_CONS** constraints = (SCIP_CONS**)calloc(sizeof(SCIP_CONS*), cons.size());
+    int cons_i = 0;
+    for (auto it = cons.begin(); it != cons.end(); it++) {
+        /*
+        int beg = 0;
+        int ind[it->second.size()];
+        double val[it->second.size()];
+        int p = 0;
+        std::cout << it->first << ":";
+        for (auto j : it->second) {
+            std::cout << "(" << j.first << "," << j.second << ") ";
+            ind[p] = j.first;
+            val[p] = j.second;
+            p++;
+        }
+        std::cout << std::endl;*/
+        //SCIP_VAR* x = nullptr;
+        char name[10];
+        sprintf(name, "cons%d", cons_i);
+        SCIPcreateConsBasicLinear(scip, &constraints[cons_i], name, 0, nullptr, nullptr, -SCIPinfinity(scip), d->b[it->first]);
+        for (auto j : it->second) {
+            SCIP_CALL(SCIPaddCoefLinear(scip, constraints[cons_i], x[j.first], j.second));
+        }
+        SCIP_CALL(SCIPaddCons(scip, constraints[cons_i]));
+        cons_i++;
+    }
+    //Scip releasing all the constraints
+    for (int i = 0; i < cons.size(); i++) {
+        SCIP_CALL(SCIPreleaseCons(scip, &constraints[i]));
+    }
+
+    SCIP_CALL(SCIPsolve(scip));
+
+    SCIP_SOL* solutions;
+    solutions = SCIPgetBestSol(scip);
+    //std::cout << "x1: " << SCIPgetSolVal(scip, solutions, x1) << " " << "x2: " << SCIPgetSolVal(scip, solutions, x2) << std::endl;
+    //SCIP_CALL((SCIPwriteOrigProblem(scip, "problem_1_example.lp", nullptr, FALSE)));
+    //Freeing the variables
+    for (int i = 0; i < n; i++) {
+        SCIP_CALL(SCIPreleaseVar(scip, &x[i]));
+    }
+    SCIP_CALL(SCIPfree(&scip));
+
+    scs_printf("Objective: %f\n", *objval);
     return SCIP_OKAY;
 }
 

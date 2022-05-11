@@ -7,7 +7,16 @@
 #include <scip/scipdefplugins.h>
 
 #include "scip/set.h"
-
+/**
+ * Maximize: 1.0 * x1 + 2.0 * x2 + 3.0 * x3 + 1.0 * x4
+ * Constraints:
+ *   -1.0 * x1 + 1.0 * x2 + 1.0 * x3 + 10.0 * x4 <= 20.0
+ *    1.0 * x1 - 3.0 * x2 + 1.0 * x3             <= 30.0
+ *               1.0 * x2            - 3.5  * x4  = 0
+ * Bounds:
+ *    0.0 <= x1 <= 40.0
+ *    2.0 <= x4 <= 3.0
+ */
 SCIP_RETCODE execmain(int argc, const char** argv) {
     SCIP* scip = nullptr;
     SCIP_CALL(SCIPcreate(&scip));
