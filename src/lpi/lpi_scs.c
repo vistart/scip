@@ -744,6 +744,15 @@ SCIP_RETCODE init_column_vector_with_elements(
     return SCIP_OKAY;
 }
 
+int get_ncolvecs(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    return lpi->column_vectors->nvec;
+}
+
 SCIP_RETCODE add_column_vector_with_elements(
     SCIP_LPI* lpi,
     int n,
@@ -752,15 +761,6 @@ SCIP_RETCODE add_column_vector_with_elements(
 )
 {
     return init_column_vector_with_elements(lpi, get_ncolvecs(lpi), n, indices, values);
-}
-
-int get_ncolvecs(
-    SCIP_LPI* lpi
-)
-{
-    assert(lpi != NULL);
-    assert(lpi->column_vectors != NULL);
-    return lpi->column_vectors->nvec;
 }
 
 SCIP_RETCODE resize_column_vectors(
