@@ -1591,6 +1591,14 @@ SCIP_RETCODE SCIPlpiFree(
     BMSfreeMemoryArrayNull(&(*lpi)->scssol->y);
     BMSfreeMemoryArrayNull(&(*lpi)->scssol->s);
     BMSfreeMemory(&((*lpi)->scssol));
+
+    //BMSfreeMemoryArrayNull(&(*lpi)->name);
+    clear_rows(*lpi);
+    clear_columns(*lpi);
+    clear_column_vectors(*lpi);
+    BMSfreeMemoryNull(&(*lpi)->rows);
+    BMSfreeMemoryNull(&(*lpi)->columns);
+    BMSfreeMemoryNull(&(*lpi)->column_vectors);
    
     BMSfreeMemory(lpi);
 
