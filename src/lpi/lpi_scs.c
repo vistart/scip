@@ -81,12 +81,25 @@ struct SCIP_Columns
     int                  ncols;
 };
 
+struct SCIP_Column_Vector
+{
+    int n;
+    int** indices;
+    SCIP_Real** values;
+};
+
+struct SCIP_Column_Vectors
+{
+    struct SCIP_Column_Vector** vectors_ptr;
+    int nvec;
+};
+
 struct SCIP_Row
 {
     SCIP_Real  lhs;
     SCIP_Real  rhs;
     char* name;
-    SCIP_Real* objs;
+    SCIP_Real** objs;
 };
 
 struct SCIP_Rows
@@ -125,6 +138,7 @@ struct SCIP_LPi
     const char* name;               /**< problem name */
     struct SCIP_Columns*  columns;
     struct SCIP_Rows*     rows;
+    struct SCIP_Column_Vectors* column_vectors;
     int                   nconsbycol;
     SCIP_Real             objlim;
     SCIP_Real             feastol;
@@ -536,7 +550,7 @@ SCIP_RETCODE resize_columns(
         }
     } else {
         if (lpi->columns->columns_ptr != NULL) {
-            BMSfreeMemory(&lpi->columns->columns_ptr);
+            BMSfreeMemoryNull(&lpi->columns->columns_ptr);
         }
     }
     lpi->columns->ncols = newsize;
@@ -554,6 +568,7 @@ SCIP_RETCODE init_column(
     int col
 )
 {
+    assert(col >= 0);
     assert(lpi != NULL);
     assert(lpi->columns != NULL);
     assert(lpi->columns->columns_ptr != NULL);
@@ -632,6 +647,197 @@ SCIP_RETCODE clear_columns(
     return init_columns(lpi);
     //free(lpi->columns);
     //return SCIP_OKAY;
+}
+
+SCIP_RETCODE init_column_vector(
+    SCIP_LPI* lpi,
+    int col,
+    int n
+)
+{
+    assert(col >= 0);
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    assert(lpi->column_vectors->vectors_ptr != NULL);
+    assert(lpi->column_vectors->nvec > col);
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]));
+    lpi->column_vectors->vectors_ptr[col]->n = n;
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]->indices));
+    SCIP_ALLOC(BMSallocClearMemoryArray(lpi->column_vectors->vectors_ptr[col]->indices, n));
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]->values));
+    SCIP_ALLOC(BMSallocClearMemoryArray(lpi->column_vectors->vectors_ptr[col]->values, n));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE init_column_vectors(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    if (lpi->column_vectors != NULL && lpi->column_vectors->nvec > 0 && lpi->column_vectors->vectors_ptr != NULL) {
+        for (int i = 0; i < lpi->column_vectors->nvec; i++) {
+            if (lpi->column_vectors->vectors_ptr[i] != NULL) {
+                BMSfreeMemoryArrayNull(lpi->column_vectors->vectors_ptr[i]->indices);
+                BMSfreeMemoryNull(&lpi->column_vectors->vectors_ptr[i]->indices);
+                BMSfreeMemoryArrayNull(lpi->column_vectors->vectors_ptr[i]->values);
+                BMSfreeMemoryNull(&lpi->column_vectors->vectors_ptr[i]->values);
+            }
+            BMSfreeMemoryNull(lpi->column_vectors->vectors_ptr[i]);
+        }
+        BMSfreeMemory(&lpi->column_vectors->vectors_ptr);
+        BMSfreeMemoryNull(&lpi->column_vectors);
+    }
+    SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE free_column_vector(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    assert(lpi->column_vectors->nvec > col);
+    assert(lpi->column_vectors->vectors_ptr != NULL);
+    if (lpi->column_vectors->vectors_ptr[col] != NULL)
+    {
+        BMSfreeMemoryArrayNull(lpi->column_vectors->vectors_ptr[col]->indices);
+        BMSfreeMemoryNull(&lpi->column_vectors->vectors_ptr[col]->indices);
+        BMSfreeMemoryArrayNull(lpi->column_vectors->vectors_ptr[col]->values);
+        BMSfreeMemoryNull(&lpi->column_vectors->vectors_ptr[col]->values);
+        BMSfreeMemoryNull(&lpi->column_vectors->vectors_ptr[col]);
+    }
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE clear_column_vectors(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    if (lpi->column_vectors == NULL) {
+        return SCIP_OKAY;
+    }
+    for (int i = 0; i < lpi->column_vectors->nvec; i++) {
+        free_column_vector(lpi, i);
+    }
+    BMSfreeMemoryNull(&lpi->column_vectors);
+    return init_column_vectors(lpi);
+}
+
+SCIP_RETCODE init_column_vector_with_elements(
+    SCIP_LPI* lpi,
+    int col,
+    int n,
+    int* indices,
+    SCIP_Real* values
+)
+{
+    init_column_vector(lpi, col, n);
+    for (int i = 0; i < n; i++) {
+        SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]->indices[i]));
+        *lpi->column_vectors->vectors_ptr[col]->indices[i] = indices[i];
+        SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]->values[i]));
+        *lpi->column_vectors->vectors_ptr[col]->values[i] = values[i];
+    }
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE add_column_vector_with_elements(
+    SCIP_LPI* lpi,
+    int n,
+    int* indices,
+    SCIP_Real* values
+)
+{
+    return init_column_vector_with_elements(lpi, get_ncolvecs(lpi), n, indices, values);
+}
+
+int get_ncolvecs(
+    SCIP_LPI* lpi
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    return lpi->column_vectors->nvec;
+}
+
+SCIP_RETCODE resize_column_vectors(
+    SCIP_LPI* lpi,
+    int newsize
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    assert(newsize >= 0);
+    if (newsize > 0) {
+        if (lpi->column_vectors->vectors_ptr == NULL)
+        {
+            SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->column_vectors->vectors_ptr, newsize));
+            //lpi->column_vectors->vectors_ptr = (struct SCIP_Column_Vector**)calloc(newsize, sizeof(struct SCIP_Column_Vector*));
+        }
+        else {
+            int oldncolvecs = get_ncolvecs(lpi);
+            SCIP_ALLOC(BMSreallocMemoryArray(&lpi->column_vectors->vectors_ptr, newsize));
+            //lpi->column_vectors->vectors_ptr = realloc(lpi->column_vectors->vectors_ptr, sizeof(struct SCIP_Column_Vector*) * newsize);
+            if (newsize > oldncolvecs) {
+                for (int i = oldncolvecs; i < newsize; i++) {
+                    lpi->column_vectors->vectors_ptr[i] = NULL;
+                }
+            }
+        }
+    }
+    else {
+        if (lpi->column_vectors->vectors_ptr != NULL) {
+            BMSfreeMemoryNull(&lpi->column_vectors->vectors_ptr);
+        }
+    }
+    lpi->column_vectors->nvec = newsize;
+    return SCIP_OKAY;
+}
+
+int get_column_vector_n(
+    SCIP_LPI* lpi,
+    int col
+)
+{
+    assert(col >= 0);
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    assert(lpi->column_vectors->vectors_ptr != NULL);
+    assert(lpi->column_vectors->vectors_ptr[col] != NULL);
+    return lpi->column_vectors->vectors_ptr[col]->n;
+}
+
+int get_column_vector_index(
+    SCIP_LPI* lpi,
+    int col,
+    int i
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    assert(lpi->column_vectors->vectors_ptr != NULL);
+    assert(lpi->column_vectors->nvec > col);
+    assert(lpi->column_vectors->vectors_ptr[col]->n > i);
+    
+    return *lpi->column_vectors->vectors_ptr[col]->indices[i];
+}
+
+SCIP_Real get_column_vector_value(
+    SCIP_LPI* lpi,
+    int col,
+    int i
+)
+{
+    assert(lpi != NULL);
+    assert(lpi->column_vectors != NULL);
+    assert(lpi->column_vectors->vectors_ptr != NULL);
+    assert(lpi->column_vectors->nvec > col);
+    assert(lpi->column_vectors->vectors_ptr[col]->n > i);
+
+    return *lpi->column_vectors->vectors_ptr[col]->values[i];
 }
 
 /**
@@ -778,7 +984,14 @@ SCIP_Real get_row_obj_real(
     assert(lpi->rows != NULL);
     assert(lpi->rows->nrows > row);
     assert(lpi->rows->rows_ptr != NULL);
-    return lpi->rows->rows_ptr[row]->objs[col];
+    assert(lpi->rows->rows_ptr[row] != NULL);
+    assert(lpi->rows->rows_ptr[row]->objs != NULL);
+    assert(lpi->rows->rows_ptr[row]->objs[col] != NULL);
+    /**
+    if (lpi->rows->rows_ptr[row]->objs[col] == NULL) {
+        return 0;
+    }*/
+    return *lpi->rows->rows_ptr[row]->objs[col];
 }
 
 SCIP_RETCODE set_row_obj_real(
@@ -792,7 +1005,14 @@ SCIP_RETCODE set_row_obj_real(
     assert(lpi->rows != NULL);
     assert(lpi->rows->nrows > row);
     assert(lpi->rows->rows_ptr != NULL);
-    lpi->rows->rows_ptr[row]->objs[col] = val;
+    assert(lpi->rows->rows_ptr[row] != NULL);
+    assert(lpi->rows->rows_ptr[row]->objs != NULL);
+    assert(lpi->rows->rows_ptr[row]->objs[col] != NULL);
+    /**
+    if (lpi->rows->rows_ptr[row]->objs[col] == NULL) {
+        BMSallocClearMemory(&lpi->rows->rows_ptr[row]->objs[col]);
+    }*/
+    *lpi->rows->rows_ptr[row]->objs[col] = val;
     return SCIP_OKAY;
 }
 
@@ -851,12 +1071,19 @@ SCIP_RETCODE resize_rows(
     if (newsize > 0) {
         if (lpi->rows->rows_ptr == NULL)
         {
-            SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->rows->rows_ptr, newsize));
+            SCIP_ALLOC(BMSallocClearMemory(&lpi->rows->rows_ptr));
+            SCIP_ALLOC(BMSallocClearMemoryArray(lpi->rows->rows_ptr, newsize));
             //lpi->rows->rows_ptr = (struct SCIP_Row**)calloc(newsize, sizeof(struct SCIP_Row*));
         } else
         {
             SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr, newsize));
             //lpi->rows->rows_ptr = realloc(lpi->rows->rows_ptr, sizeof(struct SCIP_Row*) * newsize);
+            int oldnrows = get_nrows(lpi);
+            if (oldnrows < newsize) { // 扩大
+                for (int i = oldnrows; i < newsize; i++) {
+                    SCIP_ALLOC(BMSallocClearMemory(&lpi->rows->rows_ptr[i]));
+                }
+            }
         }
     }
     else {
@@ -871,31 +1098,29 @@ SCIP_RETCODE resize_rows(
 
 SCIP_RETCODE redim_rows(
     SCIP_LPI* lpi,
-    int newsize
+    int newsize_col
 ) {
     assert(lpi != NULL);
     if (lpi->rows == NULL || lpi->rows->rows_ptr == NULL) { // 如果行不存在，则不必扩维。
         return SCIP_OKAY;
     }
-    assert(newsize >= 0);
+    assert(newsize_col >= 0);
     int nrows = get_nrows(lpi);
     for (int i = 0; i < nrows; i++) {
-        SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr[i]->objs, newsize));
+        SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr[i]->objs, newsize_col));
     }
     int oldncols = get_ncols(lpi);
-    if (newsize > 0) {
-        if (newsize > oldncols) {
-            for (int i = 0; i < nrows; i++) {
-                for (int j = oldncols; j < newsize; j++) {
-                    lpi->rows->rows_ptr[i]->objs[j] = 0;
-                }
+    if (newsize_col > oldncols) {
+        for (int i = 0; i < nrows; i++) {
+            for (int j = oldncols; j < newsize_col; j++) {
+                SCIP_ALLOC(BMSallocClearMemory(&lpi->rows->rows_ptr[i]->objs[j]));
             }
         }
     }
     return SCIP_OKAY;
 }
 
-SCIP_RETCODE free_rowobj(
+SCIP_RETCODE free_rowobjs(
     SCIP_LPI* lpi,
     int row
 )
@@ -906,7 +1131,10 @@ SCIP_RETCODE free_rowobj(
     assert(lpi->rows->nrows > row);
     if (lpi->rows->rows_ptr[row]->objs != NULL)
     {
-        BMSfreeMemoryNull(&lpi->rows->rows_ptr[row]->objs);
+        for (int i = 0; i < get_ncols(lpi); i++) {
+            BMSfreeMemoryNull(&lpi->rows->rows_ptr[row]->objs[i]);
+        }
+        BMSfreeMemoryArrayNull(&lpi->rows->rows_ptr[row]->objs);
         //free(lpi->rows->rows_ptr[row]->objs);
     }
     //lpi->rows->rows_ptr[row]->objs = (SCIP_Real*)calloc(0, sizeof(SCIP_Real));
@@ -925,17 +1153,40 @@ SCIP_RETCODE resize_row_objs(
     assert(lpi->rows->nrows > row);
     if (lpi->rows->rows_ptr[row]->objs == NULL) {
         SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->rows->rows_ptr[row]->objs, newsize));
+        for (int i = 0; i < newsize; i++) {
+            SCIP_ALLOC(BMSallocClearMemory(&lpi->rows->rows_ptr[row]->objs[i]));
+        }
     }
     else {
-        int oldnrows = get_ncols(lpi);
         SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr[row]->objs, newsize));
-        if (oldnrows < newsize) {
-            for (int i = oldnrows; i < newsize; i++) {
-                lpi->rows->rows_ptr[row]->objs[i] = 0;
+        int old = get_ncols(lpi);
+        if (old < newsize) { // 缩小：末尾释放。
+            for (int i = old; i < newsize; i++) {
+                BMSfreeMemoryNull(&lpi->rows->rows_ptr[row]->objs[i]);
             }
         }
     }
     //lpi->rows->rows_ptr[row]->objs = realloc(lpi->rows->rows_ptr[row]->objs, sizeof(SCIP_Real) * newsize);
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE move_forward_row_objs(
+    SCIP_LPI* lpi,
+    int source,
+    int target
+)
+{
+    assert(source < target);
+    assert(lpi != NULL);
+    int ncols = get_ncols(lpi);
+    assert(source >= 0 && source < ncols);
+    assert(target >= 0 && target < ncols);
+    int nrows = get_nrows(lpi);
+    for (int i = 0; i < nrows; i++) {
+        for (int j = source; j < ncols - target + source; j++) {
+            set_row_obj_real(lpi, i, j, get_row_obj_real(lpi, i, j - source + target));
+        }
+    }
     return SCIP_OKAY;
 }
 
@@ -1305,6 +1556,8 @@ SCIP_RETCODE SCIPlpiCreate(
     init_columns(*lpi);
     assert((*lpi)->rows == NULL);
     init_rows(*lpi);
+    assert((*lpi)->column_vectors == NULL);
+    init_column_vectors(*lpi);
     assert((*lpi)->cstatsize == 0);
     assert((*lpi)->rstatsize == 0);
     init_state(*lpi, get_nrows(*lpi), get_ncols(*lpi));
@@ -1564,8 +1817,8 @@ SCIP_RETCODE SCIPlpiAddCols(
      }
  #endif*/
     int oldncols = get_ncols(lpi);
-    resize_columns(lpi, oldncols + ncols);
     redim_rows(lpi, oldncols + ncols);
+    resize_columns(lpi, oldncols + ncols);
     int i;
     for (i = 0; i < ncols; i++)
     {
@@ -1579,12 +1832,13 @@ SCIP_RETCODE SCIPlpiAddCols(
         }*/
         set_column(lpi, oldncols + i, obj[i], lb[i], ub[i], colnames == NULL ? NULL : colnames[i]);
     }
-    int start;
-    int last;
-    if (nnonz > 0) {
+    int oldncolvecs = get_ncolvecs(lpi);
+    resize_column_vectors(lpi, oldncolvecs + ncols);
+    if (nnonz > 0) { // 需要添加矩阵元素
         for (i = 0; i < ncols; i++) {
-            start = beg[i];
-            last = (i == ncols - 1 ? nnonz : beg[i + 1]);
+            int start = beg[i];
+            int last = (i == ncols - 1 ? nnonz : beg[i + 1]);
+            init_column_vector_with_elements(lpi, oldncolvecs + i, last - start, &ind[start], &val[start]);
             for (int j = start; j < last; j++) {
                 SCIPdebugMessage("[%d, %d] to be set: %f, before: %f\n", ind[j], oldncols + i, val[j], get_row_obj_real(lpi, ind[j], oldncols + i));
                 set_row_obj_real(lpi, ind[j], oldncols + i, val[j]);
@@ -1592,6 +1846,7 @@ SCIP_RETCODE SCIPlpiAddCols(
             }
         }
     }
+    assert(get_ncols(lpi) == get_ncolvecs(lpi));
 #ifdef SCIP_DEBUG
     debug_print_all_columns(lpi);
 #endif
@@ -1614,11 +1869,13 @@ SCIP_RETCODE SCIPlpiDelCols(
 
     //lpi->ncols -= lastcol - firstcol + 1;
     if (firstcol == 0 && lastcol == ncols - 1) {
+        clear_column_vectors(lpi);
         return clear_columns(lpi);
     }
     for (int i = lastcol; i >= firstcol; i--)
     {
         free_column(lpi, i);
+        free_column_vector(lpi, i);
         // 将后续指针向前挪一个位置。
         /**
         for (int j = i; j < get_ncols(lpi) - 1; j++)
@@ -1627,10 +1884,21 @@ SCIP_RETCODE SCIPlpiDelCols(
         }*/
         //resize_columns(lpi, get_ncols(lpi) - 1);
     }
+    move_forward_row_objs(lpi, firstcol, lastcol + 1);
+    for (int i = 0; i < get_nrows(lpi); i++) {
+        resize_row_objs(lpi, i, ncols - firstcol + lastcol - 1);
+    }
     for (int j = lastcol + 1; j < ncols; j++) {
-        lpi->rows->rows_ptr[j - lastcol + firstcol - 1] = lpi->rows->rows_ptr[j];
+        lpi->columns->columns_ptr[j - lastcol + firstcol - 1] = lpi->columns->columns_ptr[j];
+        lpi->column_vectors->vectors_ptr[j - lastcol + firstcol - 1] = lpi->column_vectors->vectors_ptr[j];
+    }
+    for (int j = ncols - lastcol + firstcol - 1; j < ncols; j++) {
+        lpi->columns->columns_ptr[j] = NULL;
+        lpi->column_vectors->vectors_ptr[j - lastcol + firstcol - 1] = NULL;
     }
     resize_columns(lpi, ncols - lastcol + firstcol - 1);
+    resize_column_vectors(lpi, ncols - lastcol + firstcol - 1);
+    assert(get_ncols(lpi) == get_ncolvecs(lpi));
     return SCIP_OKAY;
 }
 
@@ -1669,17 +1937,29 @@ SCIP_RETCODE SCIPlpiDelColset(
     for (int i = 0; i < ncols; i++) {
         if (dstat[i] < 0) {
             free_column(lpi, i);
+            free_column_vector(lpi, i);
         }
     }
     for (int i = ncols - 2; i >= 0; i--) {
         if (dstat[i] < 0) { // 若该行已被删，则需要将后续所有行，包括空行，均向前挪一个位置。
-            for (int j = i + 1; j < ncols; j++) {
+            int j = i + 1;
+            for (; j < ncols; j++) {
                 lpi->columns->columns_ptr[j - 1] = lpi->columns->columns_ptr[j];
+                lpi->column_vectors->vectors_ptr[j - 1] = lpi->column_vectors->vectors_ptr[j];
             }
+            lpi->columns->columns_ptr[j - 1] = NULL;
+            lpi->column_vectors->vectors_ptr[j - 1] = NULL;
+            move_forward_row_objs(lpi, i, i + 1);
         }
+    }
+    for (int i = 0; i < get_nrows(lpi); i++) {
+        resize_row_objs(lpi, i, ncols - cnt);
     }
     resize_columns(lpi, ncols - cnt);
     assert(get_ncols(lpi) == ncols - cnt);
+    resize_column_vectors(lpi, ncols - cnt);
+    assert(get_ncolvecs(lpi) == ncols - cnt);
+    assert(get_ncols(lpi) == get_ncolvecs(lpi));
     SCIPdebugMessage("calling SCIPlpiDelColset()... done: %d column(s) deleted.\n", cnt);
     return SCIP_OKAY;
 }
@@ -1866,6 +2146,9 @@ SCIP_RETCODE SCIPlpiDelRows(
     }
     for (int j = lastrow + 1; j < nrows; j++) {
         lpi->rows->rows_ptr[j - lastrow + firstrow - 1] = lpi->rows->rows_ptr[j];
+    }
+    for (int j = nrows - lastrow + firstrow - 1; j < nrows; j++) {
+        lpi->rows->rows_ptr[j] = NULL;
     }
     resize_rows(lpi, nrows - lastrow + firstrow - 1);
     return SCIP_OKAY;
@@ -2249,42 +2532,13 @@ SCIP_RETCODE SCIPlpiGetCols(
         return SCIP_OKAY;
     }
     *nnonz = 0;
-    int last_beg_column = -1;
-    int beg_pos = 0;
-    int ind_pos = 0;
     if (nnonz != NULL && beg != NULL && ind != NULL && val != NULL) {
-        /**
-        for (int i = 0; i < get_nrows(lpi); i++) {
-            for (int j = firstcol; j <= lastcol; j++) {
-                SCIP_Real obj = get_row_obj_real(lpi, i, j);
-                if (obj != 0) {
-                    SCIPdebugMessage("[%d, %d]: %f\n", i, j, obj);
-                    if (last_beg_column != i) {
-                        last_beg_column = i;
-                        beg[beg_pos] = *nnonz;
-                        beg_pos++;
-                    }
-                    ind[*nnonz] = j;
-                    val[*nnonz] = obj;
-                    ++*nnonz;
-                }
-            }
-        }
-        **/
         for (int i = firstcol; i <= lastcol; i++) {
-            for (int j = 0; j < get_nrows(lpi); j++) {
-                SCIP_Real obj = get_row_obj_real(lpi, j, i);
-                if (obj != 0) {
-                    SCIPdebugMessage("cons[%d, %d]: %f\n", j, i, obj);
-                    if (last_beg_column != i) {
-                        last_beg_column = i;
-                        beg[beg_pos] = *nnonz;
-                        beg_pos++;
-                    }
-                    ind[*nnonz] = j;
-                    val[*nnonz] = obj;
-                    ++*nnonz;
-                }
+            beg[i - firstcol] = *nnonz;
+            for (int j = 0; j < get_column_vector_n(lpi, i); j++) {
+                ind[*nnonz] = get_column_vector_index(lpi, i, j);
+                val[*nnonz] = get_column_vector_value(lpi, i, j);
+                ++*nnonz;
             }
         }
     }
