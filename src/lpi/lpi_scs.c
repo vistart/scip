@@ -1597,51 +1597,30 @@ SCIP_RETCODE SCIPlpiFree(
     /* Free allocated memory */
     BMSdisplayMemory();
     BMSfreeMemoryArrayNull(&(*lpi)->scscone->s);
-    
     BMSfreeMemoryArrayNull(&(*lpi)->scscone->bl);
-    
-    BMSfreeMemoryArrayNull(&(*lpi)->scscone->bu);
-    
-    BMSfreeMemory(&((*lpi)->scscone));
-    
-    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A);
-    
+    BMSfreeMemoryArrayNull(&(*lpi)->scscone->bu); 
+    BMSfreeMemory(&((*lpi)->scscone)); 
+    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A);  
     BMSfreeMemoryArrayNull(&(*lpi)->scsdata->P);
-    
     BMSfreeMemoryArrayNull(&(*lpi)->scsdata->b);
-    
     BMSfreeMemoryArrayNull(&(*lpi)->scsdata->c);
-    
     BMSfreeMemory(&((*lpi)->scsdata));
-    
     BMSfreeMemory(&((*lpi)->scsstgs));
-    
     BMSfreeMemory(&((*lpi)->scsinfo));
-    
     /* SCS allocates sol->x,y,s if NULL on entry, need to be freed */
     BMSfreeMemoryArrayNull(&(*lpi)->scssol->x);
-    
     BMSfreeMemoryArrayNull(&(*lpi)->scssol->y);
-    
     BMSfreeMemoryArrayNull(&(*lpi)->scssol->s);
-    
     BMSfreeMemory(&((*lpi)->scssol));
     
-
     //BMSfreeMemoryArrayNull(&(*lpi)->name);
     clear_rows(*lpi);
-    
     clear_columns(*lpi);
-    
     clear_column_vectors(*lpi);
-    
     BMSfreeMemoryNull(&(*lpi)->rows);
-    
     BMSfreeMemoryNull(&(*lpi)->columns);
-    
     BMSfreeMemoryNull(&(*lpi)->column_vectors);
     
-   
     BMSfreeMemory(lpi);
     BMSdisplayMemory();
 
@@ -1797,7 +1776,6 @@ SCIP_RETCODE SCIPlpiAddCols(
 )
 {  /*lint --e{715}*/
     SCIPdebugMessage("calling SCIPlpiAddCols()...\n");
-    
     assert(lpi != NULL);
     //assert(get_ncols(lpi) >= 0);
     assert(obj != NULL);
@@ -1870,14 +1848,11 @@ SCIP_RETCODE SCIPlpiAddCols(
  #endif*/
     int oldncols = get_ncols(lpi);
     redim_rows(lpi, oldncols + ncols);
-    
     resize_columns(lpi, oldncols + ncols);
-    
     int i;
     for (i = 0; i < ncols; i++)
     {
-        init_column(lpi, oldncols + i);
-        
+        init_column(lpi, oldncols + i);  
         /**
         set_column_obj_real(lpi, oldncols + i, obj[i]);
         set_column_lower_bound_real(lpi, oldncols + i, lb[i]);
@@ -1889,13 +1864,11 @@ SCIP_RETCODE SCIPlpiAddCols(
     }
     int oldncolvecs = get_ncolvecs(lpi);
     resize_column_vectors(lpi, oldncolvecs + ncols);
-    
     if (nnonz > 0) { // 需要添加矩阵元素
         for (i = 0; i < ncols; i++) {
             int start = beg[i];
             int last = (i == ncols - 1 ? nnonz : beg[i + 1]);
-            init_column_vector_with_elements(lpi, oldncolvecs + i, last - start, &ind[start], &val[start]);
-            
+            init_column_vector_with_elements(lpi, oldncolvecs + i, last - start, &ind[start], &val[start]);      
             for (int j = start; j < last; j++) {
                 SCIPdebugMessage("[%d, %d] to be set: %f, before: %f\n", ind[j], oldncols + i, val[j], get_row_obj_real(lpi, ind[j], oldncols + i));
                 set_row_obj_real(lpi, ind[j], oldncols + i, val[j]);
