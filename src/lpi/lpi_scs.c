@@ -669,10 +669,8 @@ SCIP_RETCODE init_column_vector(
     assert(lpi->column_vectors->nvec > col);
     SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]));
     lpi->column_vectors->vectors_ptr[col]->n = n;
-    SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]->indices));
-    SCIP_ALLOC(BMSallocClearMemoryArray(lpi->column_vectors->vectors_ptr[col]->indices, n));
-    SCIP_ALLOC(BMSallocClearMemory(&lpi->column_vectors->vectors_ptr[col]->values));
-    SCIP_ALLOC(BMSallocClearMemoryArray(lpi->column_vectors->vectors_ptr[col]->values, n));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->column_vectors->vectors_ptr[col]->indices, n));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&lpi->column_vectors->vectors_ptr[col]->values, n));
     return SCIP_OKAY;
 }
 
@@ -1144,16 +1142,26 @@ SCIP_RETCODE redim_rows(
     if (lpi->rows == NULL || lpi->rows->rows_ptr == NULL) { // 如果行不存在，则不必扩维。
         return SCIP_OKAY;
     }
+    int oldncols = get_ncols(lpi);
+    if (newsize_col == oldncols) { // 维数相同，无需任何操作。
+        return SCIP_OKAY;
+    }
     assert(newsize_col >= 0);
     int nrows = get_nrows(lpi);
     for (int i = 0; i < nrows; i++) {
         SCIP_ALLOC(BMSreallocMemoryArray(&lpi->rows->rows_ptr[i]->objs, newsize_col));
     }
-    int oldncols = get_ncols(lpi);
-    if (newsize_col > oldncols) {
+    if (newsize_col > oldncols) { // 扩维
         for (int i = 0; i < nrows; i++) {
             for (int j = oldncols; j < newsize_col; j++) {
                 SCIP_ALLOC(BMSallocClearMemory(&lpi->rows->rows_ptr[i]->objs[j]));
+            }
+        }
+    }
+    else { // 缩维
+        for (int i = 0; i < nrows; i++) {
+            for (int j = newsize_col; j < oldncols; j++) {
+                BMSfreeMemoryNull(&lpi->rows->rows_ptr[i]->objs[j]);
             }
         }
     }
