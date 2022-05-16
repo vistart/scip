@@ -1624,7 +1624,8 @@ SCIP_RETCODE SCIPlpiCreate(
     (*lpi)->name = name;
     SCIPdebugMessage("Name: %s\n", (*lpi)->name);
     (*lpi)->objsen = objsen;
-    SCIPdebugMessage("ObjSen: %d (%s)\n", (*lpi)->objsen, ((*lpi)->objsen == SCIP_OBJSEN_MAXIMIZE) ? "Maximize" : ((*lpi)->objsen == SCIP_OBJSEN_MINIMIZE) ? " Minimize" : "Meaningless");
+    SCIPdebugMessage("ObjSen: %d (%s)\n", (*lpi)->objsen, ((*lpi)->objsen == SCIP_OBJSEN_MAXIMIZE) ? "Maximize" :
+        ((*lpi)->objsen == SCIP_OBJSEN_MINIMIZE) ? " Minimize" : "Meaningless");
     SCIPdebugMessage("Note that the SCIP is creating an SCS work...\n");
     /**
     (*lpi)->scscone = (ScsCone*)calloc(1, sizeof(ScsCone));
@@ -1933,7 +1934,7 @@ SCIP_RETCODE SCIPlpiAddCols(
     int oldncols = get_ncols(lpi);
     SCIP_CALL(redim_rows(lpi, oldncols + ncols));
     SCIP_CALL(resize_columns(lpi, oldncols + ncols));
-    int i;
+    int i = 0;
     for (i = 0; i < ncols; i++)
     {
         SCIP_CALL(init_column(lpi, oldncols + i));
@@ -1954,9 +1955,11 @@ SCIP_RETCODE SCIPlpiAddCols(
             int last = (i == ncols - 1 ? nnonz : beg[i + 1]);
             SCIP_CALL(init_column_vector_with_elements(lpi, oldncolvecs + i, last - start, &ind[start], &val[start]));
             for (int j = start; j < last; j++) {
-                SCIPdebugMessage("[%d, %d] to be set: %f, before: %f\n", ind[j], oldncols + i, val[j], get_row_obj_real(lpi, ind[j], oldncols + i));
+                SCIPdebugMessage("[%d, %d] to be set: %f, before: %f\n", ind[j], oldncols + i, val[j],
+                    get_row_obj_real(lpi, ind[j], oldncols + i));
                 SCIP_CALL(set_row_obj_real(lpi, ind[j], oldncols + i, val[j]));
-                SCIPdebugMessage("[%d, %d] now: %f\n", ind[j], oldncols + i, get_row_obj_real(lpi, ind[j], oldncols + i));
+                SCIPdebugMessage("[%d, %d] now: %f\n", ind[j], oldncols + i,
+                    get_row_obj_real(lpi, ind[j], oldncols + i));
             }
         }
     }
@@ -3021,7 +3024,8 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
         scs_float lb = get_column_lower_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, -lb))
         {
-            SCIP_CALL(ConstructAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr, i, -1, -lb));
+            SCIP_CALL(ConstructAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr, i, -1,
+                -lb));
             /**
             (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = -lb;
@@ -3035,7 +3039,8 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
         scs_float ub = get_column_upper_bound_real(lpi, i);
         if (!SCIPlpiIsInfinity(lpi, ub))
         {
-            SCIP_CALL(ConstructAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr, i, 1, ub));
+            SCIP_CALL(ConstructAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr, i, 1,
+                ub));
             /**
             (*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
             (*CVector)[nvector_ptr][0] = ub;
@@ -3847,7 +3852,8 @@ SCIP_RETCODE SCIPlpiGetSolFeasibility(
     assert(lpi->scsinfo != NULL);
     assert(primalfeasible != NULL);
     assert(dualfeasible != NULL);
-    *primalfeasible = (lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE);
+    *primalfeasible = (lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE
+        || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE);
     *dualfeasible = *primalfeasible;
     //*primalfeasible = !SCIPlpiIsInfinity(lpi, lpi->scsinfo->pobj); 
     //*dualfeasible = !SCIPlpiIsInfinity(lpi, lpi->scsinfo->dobj);
@@ -3905,7 +3911,8 @@ SCIP_Bool SCIPlpiIsPrimalFeasible(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
+    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE
+        || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
 }
 
 /** returns TRUE iff LP is proven to have a dual unbounded ray (but not necessary a dual feasible point);
@@ -3957,7 +3964,8 @@ SCIP_Bool SCIPlpiIsDualFeasible(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
-    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
+    return lpi->scsinfo->status_val == SCS_SOLVED || lpi->scsinfo->status_val == SCS_SOLVED_INACCURATE
+        || lpi->scsinfo->status_val == SCS_UNBOUNDED || lpi->scsinfo->status_val == SCS_UNBOUNDED_INACCURATE;
 }
 
 /** returns TRUE iff LP was solved to optimality */
