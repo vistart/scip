@@ -2953,6 +2953,29 @@ int get_number_of_finite_columns(
     return nvector;
 }
 
+SCIP_RETCODE AllocAMatrixRowAndCVectorElement(
+    scs_float*** AMatrixOfColumns,
+    scs_float*** CVector,
+    int ncols,
+    int nvector_ptr
+) {
+    SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+    //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfColumns)[nvector_ptr]), ncols));
+    //(*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE FreeAMatrixRowAndCVectorElement(
+    scs_float*** AMatrixOfColumns,
+    scs_float*** CVector,
+    int nvector_ptr
+) {
+    BMSfreeMemory(&((*CVector)[nvector_ptr]));
+    BMSfreeMemory(&((*AMatrixOfColumns)[nvector_ptr]));
+    return SCIP_OKAY;
+}
+
 /**
  */
 SCIP_RETCODE ConstructAMatrixRowAndCVectorElement(
@@ -2965,15 +2988,70 @@ SCIP_RETCODE ConstructAMatrixRowAndCVectorElement(
     scs_float bound
 )
 {
-    SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+    //SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
     //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
     (*CVector)[nvector_ptr][0] = bound;
     SCIPdebugMessage("(*CVector)[%d]: %8.2f\n", nvector_ptr, (*CVector)[nvector_ptr][0]);
-    SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfColumns)[nvector_ptr]), ncols));
+    //SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfColumns)[nvector_ptr]), ncols));
     //(*AMatrixOfColumns)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
     (*AMatrixOfColumns)[nvector_ptr][i] = elements_of_a_matrix_of_columns; //-get_column_obj_real(lpi, i);
     return SCIP_OKAY;
 }
+
+SCIP_RETCODE AllocAMatrixAndCVectorByColumns(
+    SCIP_LPI* lpi,
+    scs_float*** AMatrixOfColumns,
+    scs_float*** CVector,
+    int nvector
+) {
+    SCIPdebugMessage("calling AllocAMatrixAndCVectorByColumns()...\n");
+    assert(lpi != NULL);
+    const int ncols = get_ncols(lpi);
+    if (lpi->columns == NULL || ncols == 0)
+    {
+        return SCIP_OKAY;
+    }
+
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfColumns, nvector));
+    //*AMatrixOfColumns = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, nvector));
+    //*CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+
+    int nvector_ptr = 0;
+    for (int i = 0; i < ncols; i++)
+    {
+        scs_float lb = get_column_lower_bound_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, -lb))
+        {
+            SCIP_CALL(AllocAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr));
+            nvector_ptr++;
+        }
+        scs_float ub = get_column_upper_bound_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, ub))
+        {
+            SCIP_CALL(AllocAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, ncols, nvector_ptr));
+            nvector_ptr++;
+        }
+    }
+
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE FreeAMatrixAndCVectorByColumns(
+    scs_float*** AMatrixOfColumns,
+    scs_float*** CVector,
+    int ncols
+) {
+    for (int i = 0; i < ncols; i++)
+    {
+        SCIP_CALL(FreeAMatrixRowAndCVectorElement(&*AMatrixOfColumns, &*CVector, i));
+    }
+    BMSfreeMemoryArrayNull(&*AMatrixOfColumns);
+    //*AMatrixOfColumns = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    BMSfreeMemoryArrayNull(&*CVector);
+    return SCIP_OKAY;
+}
+
 /**
  * 根据 SCIP 提供的列（Column）构建 SCS 的 A 矩阵（约束）和对应的 c 向量（约束上界）。
  * @param lpi 指向线性求解器接口结构体的指针。
@@ -2985,11 +3063,10 @@ SCIP_RETCODE ConstructAMatrixRowAndCVectorElement(
 SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
     SCIP_LPI*   lpi,
     scs_float*** AMatrixOfColumns,
-    scs_float*** CVector,
-    int*         nvector
+    scs_float*** CVector
 )
 {
-    SCIPdebugMessage("calling ConstructAMatrixAndCVectorByColumns...\n");
+    SCIPdebugMessage("calling ConstructAMatrixAndCVectorByColumns()...\n");
     assert(lpi != NULL);
     const int ncols = get_ncols(lpi);
     if (lpi->columns == NULL || ncols == 0)
@@ -3023,13 +3100,13 @@ SCIP_RETCODE ConstructAMatrixAndCVectorByColumns(
             //(*AMatrixOfColumns)[*nvector - 1][i] = get_column_obj_real(lpi, i);
         }
     }*/
-    *nvector = get_number_of_finite_columns(lpi);
-    SCIPdebugMessage("*nvector: %d\n", *nvector);
-    int nvector_ptr = 0;
-    SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfColumns, *nvector));
+    //*nvector = get_number_of_finite_columns(lpi);
+    //SCIPdebugMessage("*nvector: %d\n", nvector);
+    //SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfColumns, nvector));
     //*AMatrixOfColumns = (scs_float**)calloc(*nvector, sizeof(scs_float*));
-    SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, *nvector));
+    //SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, nvector));
     //*CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    int nvector_ptr = 0;
     for (int i = 0; i < ncols; i++)
     {
         scs_float lb = get_column_lower_bound_real(lpi, i);
@@ -3497,8 +3574,9 @@ SCIP_RETCODE ConstructAMatrix(
 {
     scs_float** AMatrixOfColumns;
     scs_float** CVectorOfColumns;
-    int nvectorCol = 0;
-    ConstructAMatrixAndCVectorByColumns(lpi, &AMatrixOfColumns, &CVectorOfColumns, &nvectorCol);
+    int nvectorCol = get_number_of_finite_columns(lpi);
+    SCIP_CALL(AllocAMatrixAndCVectorByColumns(lpi, &AMatrixOfColumns, &CVectorOfColumns, nvectorCol));
+    SCIP_CALL(ConstructAMatrixAndCVectorByColumns(lpi, &AMatrixOfColumns, &CVectorOfColumns));
     assert(AMatrixOfColumns != NULL);
     assert(CVectorOfColumns != NULL);
 
@@ -3534,6 +3612,7 @@ SCIP_RETCODE ConstructAMatrix(
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
     //CombineTwoMatricesByRow(CVectorOfRows, CVectorOfColumns, &CVector, nvectorRow, nvectorCol, 1);
     //debug_print_matrix_real(CVector, *m, 1);
+    SCIP_CALL(FreeAMatrixAndCVectorByColumns(&AMatrixOfColumns, &CVectorOfColumns, nvectorCol));
     SCIP_CALL(FreeAMatrixAndCVectorByRows(&AMatrixOfRows, &CVectorOfRows, nvectorRow));
 
     scs_float** Ib;
