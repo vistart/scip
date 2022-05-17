@@ -3383,7 +3383,7 @@ SCIP_RETCODE ConstructCVector(
     scs_float** c
 )
 {
-    SCIP_ALLOC(BMSallocClearMemoryArray(c, get_ncols(lpi)));
+    //SCIP_ALLOC(BMSallocClearMemoryArray(c, get_ncols(lpi)));
     //*c = (scs_float*)calloc(get_ncols(lpi), sizeof(scs_float));
     for (int i = 0; i < get_ncols(lpi); i++)
     {
@@ -3446,6 +3446,8 @@ SCIP_RETCODE ConstructAMatrix(
     SCIP_CALL(InverseMatrix(CVector, &Ib, *m, 1));
     *b = Ib[0];
     BMSfreeMemoryNull(&Ib);
+    
+    SCIP_ALLOC(BMSallocClearMemoryArray(c, get_ncols(lpi)));
     SCIP_CALL(ConstructCVector(lpi, &*c));
     return SCIP_OKAY;
 }
