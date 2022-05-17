@@ -3332,6 +3332,9 @@ SCIP_RETCODE CompressMatrixByColumn(
     return SCIP_OKAY;
 }
 
+/**
+ * 翻转矩阵。
+ */
 SCIP_RETCODE InverseMatrix(
     scs_float** origin,
     scs_float*** result,
@@ -3339,13 +3342,14 @@ SCIP_RETCODE InverseMatrix(
     int col
 )
 {
-    SCIP_ALLOC(BMSallocClearMemoryArray(&*result, col));
+    // 分配、调整、释放内存应该与访问分离。
+    //SCIP_ALLOC(BMSallocClearMemoryArray(&*result, col));
     //*result = (scs_float**)calloc(col, sizeof(scs_float*));
-    for (int j = 0; j < col; j++)
-    {
-        SCIP_ALLOC(BMSallocClearMemoryArray(&((*result)[j]), row));
+    //for (int j = 0; j < col; j++)
+    //{
+        //SCIP_ALLOC(BMSallocClearMemoryArray(&((*result)[j]), row));
         //(*result)[j] = (scs_float*)calloc(row, sizeof(scs_float));
-    }
+    //}
     for (int i = 0; i < row; i++)
     {
         for (int j = 0; j < col; j++)
@@ -3434,9 +3438,15 @@ SCIP_RETCODE ConstructAMatrix(
     CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
 
     scs_float** Ib;
-    InverseMatrix(CVector, &Ib, *m, 1);
+    SCIP_ALLOC(BMSallocClearMemoryArray(&Ib, 1));
+    for (int j = 0; j < 1; j++)
+    {
+        SCIP_ALLOC(BMSallocClearMemoryArray(&(Ib[j]), *m));
+    }
+    SCIP_CALL(InverseMatrix(CVector, &Ib, *m, 1));
     *b = Ib[0];
-    ConstructCVector(lpi, &*c);
+    BMSfreeMemoryNull(&Ib);
+    SCIP_CALL(ConstructCVector(lpi, &*c));
     return SCIP_OKAY;
 }
 
