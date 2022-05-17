@@ -1684,8 +1684,19 @@ SCIP_RETCODE SCIPlpiFree(
     BMSfreeMemoryArrayNull(&(*lpi)->scscone->s);
     BMSfreeMemoryArrayNull(&(*lpi)->scscone->bl);
     BMSfreeMemoryArrayNull(&(*lpi)->scscone->bu); 
-    BMSfreeMemoryNull(&((*lpi)->scscone)); 
-    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A);  
+    BMSfreeMemoryNull(&((*lpi)->scscone));
+    if ((*lpi)->scsdata->A != NULL) {
+        if ((*lpi)->scsdata->A->x != NULL) {
+            BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A->x);
+        }
+        if ((*lpi)->scsdata->A->i != NULL) {
+            BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A->i);
+        }
+        if ((*lpi)->scsdata->A->p != NULL) {
+            BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A->p);
+        }
+    }
+    BMSfreeMemoryArrayNull(&(*lpi)->scsdata->A);
     BMSfreeMemoryArrayNull(&(*lpi)->scsdata->P);
     BMSfreeMemoryArrayNull(&(*lpi)->scsdata->b);
     BMSfreeMemoryArrayNull(&(*lpi)->scsdata->c);
@@ -3086,79 +3097,6 @@ int get_number_of_finite_rows(
     return nvector;
 }
 
-/**
- */
-SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
-    SCIP_LPI* lpi,
-    scs_float*** AMatrixOfRows,
-    scs_float*** CVector,
-    int*         nvector
-)
-{
-    assert(lpi != NULL);
-    const int nrows = get_nrows(lpi);
-    if (lpi->rows == NULL || nrows == 0)
-    {
-        return SCIP_OKAY;
-    }
-    /**
-    *nvector = 0;
-    for (int i = 0; i < get_nrows(lpi); i++)
-    {
-        const scs_float lhs = get_row_lhs_real(lpi, i);
-        if (!SCIPlpiIsInfinity(lpi, -lhs))
-        {
-            ++*nvector;
-        }
-        const scs_float rhs = get_row_rhs_real(lpi, i);
-        if (!SCIPlpiIsInfinity(lpi, rhs))
-        {
-            ++*nvector;
-        }
-    }*/
-    *nvector = get_number_of_finite_rows(lpi);
-    SCIPdebugMessage("*nvector: %d\n", *nvector);
-    int nvector_ptr = 0;
-    SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfRows, *nvector));
-    //*AMatrixOfRows = (scs_float**)calloc(*nvector, sizeof(scs_float*));
-    SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, *nvector));
-    //*CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
-    const int ncols = get_ncols(lpi);
-    for (int i = 0; i < get_nrows(lpi); i++)
-    {
-        const scs_float lhs = get_row_lhs_real(lpi, i);
-        if (!SCIPlpiIsInfinity(lpi, -lhs))
-        {
-            SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
-            //(*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
-            for (int j = 0; j < ncols; j++)
-            {
-                (*AMatrixOfRows)[nvector_ptr][j] = -get_row_obj_real(lpi, i, j);
-                // 如果存在左边界，即大于等于，则取相反数。
-            }
-            SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
-            //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
-            (*CVector)[nvector_ptr][0] = -lhs; // 如果存在左边界，即大于等于，则取相反数。
-            nvector_ptr++;
-        }
-        const scs_float rhs = get_row_rhs_real(lpi, i);
-        if (!SCIPlpiIsInfinity(lpi, rhs))
-        {
-            SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
-            //(*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
-            for (int j = 0; j < ncols; j++)
-            {
-                (*AMatrixOfRows)[nvector_ptr][j] = get_row_obj_real(lpi, i, j);
-            }
-            SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
-            //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
-            (*CVector)[nvector_ptr][0] = rhs;
-            nvector_ptr++;
-        }
-    }
-    return SCIP_OKAY;
-}
-
 SCIP_RETCODE debug_print_matrix_real(
     scs_float** matrix,
     scs_int row,
@@ -3196,11 +3134,11 @@ SCIP_RETCODE CombineTwoMatricesByRow(
     const int ncol
 )
 {
-    SCIP_ALLOC(BMSallocClearMemoryArray(matrix, nrowUp + nrowBottom));
+    //SCIP_ALLOC(BMSallocClearMemoryArray(matrix, nrowUp + nrowBottom));
     //*matrix = (scs_float**)calloc(nrowUp + nrowBottom, sizeof(scs_float*));
     for (int i = 0; i < nrowUp; i++)
     {
-        SCIP_ALLOC(BMSallocClearMemoryArray(&((*matrix)[i]), ncol));
+        //SCIP_ALLOC(BMSallocClearMemoryArray(&((*matrix)[i]), ncol));
         //(*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
         for (int j = 0; j < ncol; j++)
         {
@@ -3209,7 +3147,7 @@ SCIP_RETCODE CombineTwoMatricesByRow(
     }
     for (int i = nrowUp; i < nrowUp + nrowBottom; i++)
     {
-        SCIP_ALLOC(BMSallocClearMemoryArray(&((*matrix)[i]), ncol));
+        //SCIP_ALLOC(BMSallocClearMemoryArray(&((*matrix)[i]), ncol));
         //(*matrix)[i] = (scs_float*)calloc(ncol, sizeof(scs_float));
         for (int j = 0; j < ncol; j++)
         {
@@ -3392,6 +3330,160 @@ SCIP_RETCODE ConstructCVector(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE AllocMatrixForCombinationByRow(
+    scs_float*** matrix,
+    const int nrow,
+    const int ncol
+) {
+    SCIP_ALLOC(BMSallocClearMemoryArray(matrix, nrow));
+    //*matrix = (scs_float**)calloc(nrowUp + nrowBottom, sizeof(scs_float*));
+    for (int i = 0; i < nrow; i++)
+    {
+        SCIP_ALLOC(BMSallocClearMemoryArray(&((*matrix)[i]), ncol));
+    }
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE FreeMatrixForCombinationByRow(
+    scs_float*** matrix,
+    const int nrow
+) {
+    for (int i = 0; i < nrow; i++) {
+        BMSfreeMemoryArrayNull(&((*matrix)[i]));
+    }
+    BMSfreeMemoryArrayNull(matrix);
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE AllocAMatrixAndCVectorByRows(
+    SCIP_LPI* lpi,
+    scs_float*** AMatrixOfRows,
+    scs_float*** CVector,
+    const int nvector
+) {
+    assert(lpi != NULL);
+    const int nrows = get_nrows(lpi);
+    if (lpi->rows == NULL || nrows == 0)
+    {
+        return SCIP_OKAY;
+    }
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfRows, nvector));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, nvector));
+    int nvector_ptr = 0;
+    const int ncols = get_ncols(lpi);
+    for (int i = 0; i < nrows; i++)
+    {
+        const scs_float lhs = get_row_lhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, -lhs))
+        {
+            SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
+            SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+            nvector_ptr++;
+        }
+        const scs_float rhs = get_row_rhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, rhs))
+        {
+            SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
+            SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+            nvector_ptr++;
+        }
+    }
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE FreeAMatrixAndCVectorByRows(
+    scs_float*** AMatrixOfRows,
+    scs_float*** CVector,
+    int nrows
+) {
+    if (AMatrixOfRows == NULL || CVector == NULL) {
+        return SCIP_OKAY;
+    }
+
+    for (int i = nrows - 1; i >= 0; i--)
+    {
+        BMSfreeMemoryArrayNull(&((*AMatrixOfRows)[i]));
+        BMSfreeMemoryNull(&((*CVector)[i]));
+    }
+
+    BMSfreeMemoryArrayNull(&*AMatrixOfRows);
+    BMSfreeMemoryArrayNull(&*CVector);
+
+    return SCIP_OKAY;
+}
+
+/**
+ */
+SCIP_RETCODE ConstructAMatrixAndCVectorByRows(
+    SCIP_LPI* lpi,
+    scs_float*** AMatrixOfRows,
+    scs_float*** CVector
+)
+{
+    assert(lpi != NULL);
+    const int nrows = get_nrows(lpi);
+    if (lpi->rows == NULL || nrows == 0)
+    {
+        return SCIP_OKAY;
+    }
+    /**
+    *nvector = 0;
+    for (int i = 0; i < get_nrows(lpi); i++)
+    {
+        const scs_float lhs = get_row_lhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, -lhs))
+        {
+            ++*nvector;
+        }
+        const scs_float rhs = get_row_rhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, rhs))
+        {
+            ++*nvector;
+        }
+    }*/
+    //*nvector = get_number_of_finite_rows(lpi);
+    //SCIPdebugMessage("*nvector: %d\n", *nvector);
+    int nvector_ptr = 0;
+    //SCIP_ALLOC(BMSallocClearMemoryArray(&*AMatrixOfRows, *nvector));
+    //*AMatrixOfRows = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    //SCIP_ALLOC(BMSallocClearMemoryArray(&*CVector, *nvector));
+    //*CVector = (scs_float**)calloc(*nvector, sizeof(scs_float*));
+    const int ncols = get_ncols(lpi);
+    for (int i = 0; i < nrows; i++)
+    {
+        const scs_float lhs = get_row_lhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, -lhs))
+        {
+            //SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
+            //(*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+            for (int j = 0; j < ncols; j++)
+            {
+                (*AMatrixOfRows)[nvector_ptr][j] = -get_row_obj_real(lpi, i, j);
+                // 如果存在左边界，即大于等于，则取相反数。
+            }
+            //SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+            //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+            (*CVector)[nvector_ptr][0] = -lhs; // 如果存在左边界，即大于等于，则取相反数。
+            nvector_ptr++;
+        }
+        const scs_float rhs = get_row_rhs_real(lpi, i);
+        if (!SCIPlpiIsInfinity(lpi, rhs))
+        {
+            //SCIP_ALLOC(BMSallocClearMemoryArray(&((*AMatrixOfRows)[nvector_ptr]), ncols));
+            //(*AMatrixOfRows)[nvector_ptr] = (scs_float*)calloc(ncols, sizeof(scs_float));
+            for (int j = 0; j < ncols; j++)
+            {
+                (*AMatrixOfRows)[nvector_ptr][j] = get_row_obj_real(lpi, i, j);
+            }
+            //SCIP_ALLOC(BMSallocClearMemory(&((*CVector)[nvector_ptr])));
+            //(*CVector)[nvector_ptr] = (scs_float*)calloc(1, sizeof(scs_float));
+            (*CVector)[nvector_ptr][0] = rhs;
+            nvector_ptr++;
+        }
+    }
+    return SCIP_OKAY;
+}
+
 SCIP_RETCODE ConstructAMatrix(
     SCIP_LPI* lpi,
     scs_float** Ax,
@@ -3415,8 +3507,9 @@ SCIP_RETCODE ConstructAMatrix(
 
     scs_float** AMatrixOfRows;
     scs_float** CVectorOfRows;
-    int nvectorRow = 0;
-    ConstructAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows, &nvectorRow);
+    int nvectorRow = get_number_of_finite_rows(lpi);;
+    SCIP_CALL(AllocAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows, nvectorRow));
+    SCIP_CALL(ConstructAMatrixAndCVectorByRows(lpi, &AMatrixOfRows, &CVectorOfRows));
 
     //debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
     //debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
@@ -3425,17 +3518,23 @@ SCIP_RETCODE ConstructAMatrix(
     *n = get_ncols(lpi);
 
     scs_float** AMatrix;
-    scs_float** CVector;
-    
+    SCIP_CALL(AllocMatrixForCombinationByRow(&AMatrix, nvectorCol + nvectorRow, *n));
+
     CombineTwoMatricesByRow(AMatrixOfColumns, AMatrixOfRows, &AMatrix, nvectorCol, nvectorRow, *n);
     //CombineTwoMatricesByRow(AMatrixOfRows, AMatrixOfColumns, &AMatrix, nvectorRow, nvectorCol, *n);
-    lpi->nconsbycol = nvectorCol;
+
+    CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
     //debug_print_matrix_real(AMatrix, *m, *n);
+    SCIP_CALL(FreeMatrixForCombinationByRow(&AMatrix, nvectorCol + nvectorRow));
+
+    lpi->nconsbycol = nvectorCol;
+
+    scs_float** CVector;
+    SCIP_CALL(AllocMatrixForCombinationByRow(&CVector, nvectorCol + nvectorRow, 1));
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
     //CombineTwoMatricesByRow(CVectorOfRows, CVectorOfColumns, &CVector, nvectorRow, nvectorCol, 1);
     //debug_print_matrix_real(CVector, *m, 1);
-
-    CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
+    SCIP_CALL(FreeAMatrixAndCVectorByRows(&AMatrixOfRows, &CVectorOfRows, nvectorRow));
 
     scs_float** Ib;
     SCIP_ALLOC(BMSallocClearMemoryArray(&Ib, 1));
@@ -3444,6 +3543,7 @@ SCIP_RETCODE ConstructAMatrix(
         SCIP_ALLOC(BMSallocClearMemoryArray(&(Ib[j]), *m));
     }
     SCIP_CALL(InverseMatrix(CVector, &Ib, *m, 1));
+    SCIP_CALL(FreeMatrixForCombinationByRow(&CVector, nvectorCol + nvectorRow));
     *b = Ib[0];
     BMSfreeMemoryNull(&Ib);
     
@@ -4048,6 +4148,11 @@ int SCIPlpiGetInternalStatus(
     assert(lpi != NULL);
     assert(lpi->scsinfo != NULL);
     SCIPdebugMessage("Solving Status: %d\n", lpi->solved);
+    if (lpi->scsdata && lpi->scsdata->A) {
+        printf("lpi->scsdata->A->x addr: 0x%08x\n", lpi->scsdata->A->x);
+        printf("lpi->scsdata->A->i addr: 0x%08x\n", lpi->scsdata->A->i);
+        printf("lpi->scsdata->A->p addr: 0x%08x\n", lpi->scsdata->A->p);
+    }
     return lpi->scsinfo->status_val;
 }
 
