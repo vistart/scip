@@ -29,6 +29,69 @@
 #include "scip/pub_message.h"
 #include "scs.h"
 
+/** Contains normalization variables. */
+typedef struct {
+    scs_float* D, * E; /* for normalization */
+    scs_int m;        /* Length of D */
+    scs_int n;        /* Length of E */
+    scs_float primal_scale, dual_scale;
+} ScsScaling;
+
+/** Holds residual information. */
+typedef struct {
+    scs_int last_iter;
+    scs_float xt_p_x;     /* x' P x  */
+    scs_float xt_p_x_tau; /* x'Px * tau^2 *not* divided out */
+    scs_float ctx;
+    scs_float ctx_tau; /* tau *not* divided out */
+    scs_float bty;
+    scs_float bty_tau; /* tau *not* divided out */
+    scs_float pobj;    /* primal objective */
+    scs_float dobj;    /* dual objective */
+    scs_float gap;     /* pobj - dobj */
+    scs_float tau;
+    scs_float kap;
+    scs_float res_pri;
+    scs_float res_dual;
+    scs_float res_infeas;
+    scs_float res_unbdd_p;
+    scs_float res_unbdd_a;
+    /* tau NOT divided out */
+    scs_float* ax, * ax_s, * px, * aty, * ax_s_btau, * px_aty_ctau;
+} ScsResiduals;
+
+/** Workspace for SCS. */
+struct SCS_WORK {
+    /* x_prev = x from previous iteration */
+    scs_float setup_time;       /* time taken for setup phase (milliseconds) */
+    scs_int time_limit_reached; /* boolean, if the time-limit is reached */
+    scs_float* u, * u_t;
+    scs_float* v, * v_prev;
+    scs_float* rsk;                /* rsk [ r; s; kappa ] */
+    scs_float* h;                  /* h = [c; b] */
+    scs_float* g;                  /* g = (I + M)^{-1} h */
+    scs_float* lin_sys_warm_start; /* linear system warm-start (indirect only) */
+    scs_float* diag_r; /* vector of R matrix diagonals (affects cone proj) */
+    scs_float* b_orig, * c_orig; /* original unnormalized b and c vectors */
+    AaWork* accel;              /* struct for acceleration workspace */
+    ScsData* d;                 /* Problem data deep copy NORMALIZED */
+    ScsCone* k;                 /* Problem cone deep copy */
+    ScsSettings* stgs;          /* contains solver settings specified by user */
+    ScsLinSysWork* p;           /* struct populated by linear system solver */
+    ScsScaling* scal;           /* contains the re-scaling data */
+    ScsConeWork* cone_work;     /* workspace for the cone projection step */
+    /* normalized and unnormalized residuals */
+    ScsResiduals* r_orig, * r_normalized;
+    /* track x,y,s as alg progresses, tau *not* divided out */
+    ScsSolution* xys_orig, * xys_normalized;
+    /* Scale updating workspace */
+    scs_float sum_log_scale_factor;
+    scs_int last_scale_update_iter, n_log_scale_factor, scale_updates;
+    /* AA stats */
+    scs_float aa_norm;
+    scs_int rejected_accel_steps, accepted_accel_steps;
+};
+
 #define LPINAME            "SCS"                             /**< name of the LPI interface */
 #define LPIINFINITY        1e+20                             /**< infinity value */
 #define ABS(x) ((x)>0?(x):-(x))                              /**< get absolute value of x */
@@ -1671,6 +1734,40 @@ SCIP_RETCODE SCIPlpiCreate(
     return SCIP_OKAY;
 }
 
+SCIP_RETCODE AllocScsSol(
+    SCIP_LPI* lpi
+) {
+    assert(lpi != NULL);
+    assert(lpi->scssol != NULL);
+    assert(lpi->scswork != NULL);
+    struct SCS_WORK* w = lpi->scswork;
+    SCIP_ALLOC(BMSallocMemoryArray(&lpi->scssol->x, w->d->n));
+    SCIP_ALLOC(BMSallocMemoryArray(&lpi->scssol->y, w->d->m));
+    SCIP_ALLOC(BMSallocMemoryArray(&lpi->scssol->s, w->d->m));
+    return SCIP_OKAY;
+}
+
+SCIP_RETCODE FreeScsSol(
+    SCIP_LPI* lpi
+) {
+    assert(lpi != NULL);
+    if (lpi->scssol == NULL) {
+        return SCIP_OKAY;
+    }
+
+    if (lpi->scssol->x != NULL) {
+        BMSfreeMemoryArrayNull(&lpi->scssol->x);
+    }
+    if (lpi->scssol->y != NULL) {
+        BMSfreeMemoryArrayNull(&lpi->scssol->y);
+    }
+    if (lpi->scssol->s != NULL) {
+        BMSfreeMemoryArrayNull(&lpi->scssol->s);
+    }
+
+    return SCIP_OKAY;
+}
+
 /** deletes an LP problem object */
 SCIP_RETCODE SCIPlpiFree(
     SCIP_LPI** lpi                 /**< 指向线性求解器接口结构体的指针 */
@@ -1704,9 +1801,11 @@ SCIP_RETCODE SCIPlpiFree(
     BMSfreeMemoryNull(&((*lpi)->scsstgs));
     BMSfreeMemoryNull(&((*lpi)->scsinfo));
     /* SCS allocates sol->x,y,s if NULL on entry, need to be freed */
+    /**
     free((*lpi)->scssol->x);
     free((*lpi)->scssol->y);
-    free((*lpi)->scssol->s);
+    free((*lpi)->scssol->s);*/
+    SCIP_CALL(FreeScsSol(*lpi));
     BMSfreeMemoryNull(&((*lpi)->scssol));
     
     //BMSfreeMemoryArrayNull(&(*lpi)->name);
@@ -1774,6 +1873,7 @@ SCIP_RETCODE SCIPlpiLoadColLP(
     invalidateSolution(lpi);
     SCIP_CALL(clear_rows(lpi));
     SCIP_CALL(clear_columns(lpi));
+    SCIP_CALL(clear_column_vectors(lpi));
 
     lpi->objsen = objsen;
     int oldnrows = get_nrows(lpi);
@@ -3572,6 +3672,7 @@ SCIP_RETCODE ConstructAMatrix(
     int*  n
 )
 {
+    // 选取（有限）边界列
     scs_float** AMatrixOfColumns;
     scs_float** CVectorOfColumns;
     int nvectorCol = get_number_of_finite_columns(lpi);
@@ -3583,6 +3684,7 @@ SCIP_RETCODE ConstructAMatrix(
     //debug_print_matrix_real(AMatrixOfColumns, nvectorCol, get_ncols(lpi));
     //debug_print_matrix_real(CVectorOfColumns, nvectorCol, 1);
 
+    // 选取（有限）边界行
     scs_float** AMatrixOfRows;
     scs_float** CVectorOfRows;
     int nvectorRow = get_number_of_finite_rows(lpi);;
@@ -3592,21 +3694,23 @@ SCIP_RETCODE ConstructAMatrix(
     //debug_print_matrix_real(AMatrixOfRows, nvectorRow, get_ncols(lpi));
     //debug_print_matrix_real(CVectorOfRows, nvectorRow, 1);
 
-    *m = nvectorCol + nvectorRow;
-    *n = get_ncols(lpi);
+    *m = nvectorCol + nvectorRow; // SCS 的 A 矩阵为 nvectorCol + nvectorRow 行，即 SCS 求解的对偶问题的解个数。
+    *n = get_ncols(lpi);          // SCS 的 A 矩阵为 get_ncols(lpi) 列，即 SCS 求解的原问题的解个数。
 
+    // 构建 A 矩阵：将选取的（有限）边界列的表达式部分和（有限）边界行的表达式部分拼接在一起。
     scs_float** AMatrix;
     SCIP_CALL(AllocMatrixForCombinationByRow(&AMatrix, nvectorCol + nvectorRow, *n));
-
     CombineTwoMatricesByRow(AMatrixOfColumns, AMatrixOfRows, &AMatrix, nvectorCol, nvectorRow, *n);
     //CombineTwoMatricesByRow(AMatrixOfRows, AMatrixOfColumns, &AMatrix, nvectorRow, nvectorCol, *n);
 
+    // 将拼接后的 A 矩阵转为 SCS 可接受的格式，即压缩矩阵格式。
     CompressMatrixByColumn(AMatrix, *m, *n, &*Ax, &*Ai, &*Ap);
     //debug_print_matrix_real(AMatrix, *m, *n);
     SCIP_CALL(FreeMatrixForCombinationByRow(&AMatrix, nvectorCol + nvectorRow));
 
     lpi->nconsbycol = nvectorCol;
 
+    // 构建 b 向量（A 矩阵对应的边界）：将选取的（有限）列的边界部分和（有限）边界行的边界部分拼接在一起。
     scs_float** CVector;
     SCIP_CALL(AllocMatrixForCombinationByRow(&CVector, nvectorCol + nvectorRow, 1));
     CombineTwoMatricesByRow(CVectorOfColumns, CVectorOfRows, &CVector, nvectorCol, nvectorRow, 1);
@@ -3615,17 +3719,19 @@ SCIP_RETCODE ConstructAMatrix(
     SCIP_CALL(FreeAMatrixAndCVectorByColumns(&AMatrixOfColumns, &CVectorOfColumns, nvectorCol));
     SCIP_CALL(FreeAMatrixAndCVectorByRows(&AMatrixOfRows, &CVectorOfRows, nvectorRow));
 
+    // CVector 实际为 SCS 要求的 b 向量，需要将 CVector 转置。
     scs_float** Ib;
-    SCIP_ALLOC(BMSallocClearMemoryArray(&Ib, 1));
+    SCIP_ALLOC(BMSallocClearMemoryArray(&Ib, 1)); // 因 b 向量只有一列，故只申请一组空间。
     for (int j = 0; j < 1; j++)
     {
         SCIP_ALLOC(BMSallocClearMemoryArray(&(Ib[j]), *m));
     }
     SCIP_CALL(InverseMatrix(CVector, &Ib, *m, 1));
     SCIP_CALL(FreeMatrixForCombinationByRow(&CVector, nvectorCol + nvectorRow));
-    *b = Ib[0];
+    *b = Ib[0]; // b 向量只取第一列。
     BMSfreeMemoryNull(&Ib);
-    
+
+    // 构建 c 向量（目标函数向量）：
     SCIP_ALLOC(BMSallocClearMemoryArray(c, get_ncols(lpi)));
     SCIP_CALL(ConstructCVector(lpi, &*c));
     return SCIP_OKAY;
@@ -3838,6 +3944,9 @@ SCIP_RETCODE scsSolve(
     lpi->scscone->z = 0;
     lpi->scscone->l = lpi->scsdata->m;
     lpi->scswork = scs_init(lpi->scsdata, lpi->scscone, lpi->scsstgs);
+
+    SCIP_CALL(FreeScsSol(lpi));
+    SCIP_CALL(AllocScsSol(lpi));
     scs_int exitflag = scs_solve(lpi->scswork, lpi->scssol, lpi->scsinfo, 0);
     SCIP_CALL(debug_print_scs_solution(lpi));
     scs_finish(lpi->scswork);
@@ -4299,7 +4408,25 @@ SCIP_RETCODE SCIPlpiGetSol(
         {
             dualsol[i] = lpi->scssol->y[i];
         }*/
-        dualsol = (SCIP_Real*)calloc(get_nrows(lpi) - lpi->nconsbycol, sizeof(SCIP_Real));
+        //dualsol = (SCIP_Real*)calloc(get_nrows(lpi) - lpi->nconsbycol, sizeof(SCIP_Real));
+        // 由于 SCIP 与 SCS 针对约束的定义不同，而对偶解实际是约束表达式的值，因此，需要针对 SCIP 和 SCS 针对不同约束定义做转换。
+        // 转换方式如下：
+        // 1. SCIP 的列全部忽略。
+        // 2. SCIP 的行根据边界情况不同做判断：
+        //   2.1. 如果只有左边界（lhs）或右边界（rhs），则使用该条对偶解；
+        //   2.1. 如果只有即有左边界（lhs）又有右边界（rhs），则使用右边界对应的对偶解。
+        int row_pos = 0;
+        for (int i = get_number_of_finite_columns(lpi); i < lpi->scsdata->A->m; i++) {
+            SCIP_Bool is_lhs_finite = !SCIPlpiIsInfinity(lpi, -get_row_lhs_real(lpi, row_pos));
+            SCIP_Bool is_rhs_finite = !SCIPlpiIsInfinity(lpi, get_row_rhs_real(lpi, row_pos));
+            if (is_lhs_finite && is_rhs_finite) {
+                // 即有左边界，又有右边界，使用右边界。左边界的对偶解在前，右边界的对偶解在后。
+                dualsol[row_pos++] = lpi->scssol->y[++i];
+                continue;
+            }
+            // 要么有左边界，要么有右边界。
+            dualsol[row_pos++] = lpi->scssol->y[i];
+        }
     }
     if (activity)
     {
@@ -4564,6 +4691,25 @@ SCIP_RETCODE SCIPlpiSetBase(
     return SCIP_OKAY;
 }
 
+int get_number_of_basis(
+    SCIP_LPI* lpi
+) {
+    int pos = 0;
+    for (int i = 0; i < get_nrows(lpi); i++)
+    {
+        if (getBaseOfRow(lpi, i) == SCIP_BASESTAT_BASIC) {
+            pos++;
+        }
+    }
+    for (int i = 0; i < get_ncols(lpi); i++)
+    {
+        if (getBaseOfColumn(lpi, i) == SCIP_BASESTAT_BASIC) {
+            pos++;
+        }
+    }
+    return pos;
+}
+
 /** returns the indices of the basic columns and rows; basic column n gives value n, basic row m gives value -1-m */
 SCIP_RETCODE SCIPlpiGetBasisInd(
     SCIP_LPI* lpi,          /**< LP interface structure */
@@ -4612,6 +4758,24 @@ SCIP_RETCODE SCIPlpiGetBInvRow(
 {  /*lint --e{715}*/
     assert(lpi != NULL);
     assert(coef != NULL);
+
+    int* bind = NULL;
+    SCIP_ALLOC(BMSallocClearMemoryArray(&bind, get_number_of_basis(lpi)));
+    SCIP_CALL(SCIPlpiGetBasisInd(lpi, bind));
+
+    int index = bind[r];
+
+    if (index < 0) {
+        index = -index - 1;
+        assert(index >= 0);
+        assert(index < get_nrows(lpi));
+        assert(getBaseOfRow(lpi, index) != SCIP_BASESTAT_BASIC);
+
+        
+    }
+    else {
+
+    }
     inds = NULL;
     ninds = NULL;
     return SCIP_OKAY;

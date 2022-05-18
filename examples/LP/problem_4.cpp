@@ -484,5 +484,13 @@ int main(int argc, const char* argv[]) {
     if (execmain_test3(argc, argv) == SCIP_OKAY) {
         printf("The test 3 passed!\n");
     }
+    // test3 does not require `teardown()`.
+    if (!setup()) {
+        printf("The test 4 failed to initialize.\n");
+    }
+    if (execmain_test4(argc, argv) == SCIP_OKAY) {
+        printf("The test 4 passed!\n");
+    }
+    teardown();
     return 0;
 }
