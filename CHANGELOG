@@ -6,8 +6,19 @@
 Features
 --------
 
+- added simplification of abs(x)^n to x^n when n is even (simplify rule POW12)
+- in expression simplification, added possibility to expand power of sum with exponents larger than 2 (simplify rule POW7)
+- in expression simplification, added possibility to expand products with sums as factor when there are more than two factors (simplify rule SP12b)
+- in expression simplification, added possibility to allow expanding power of products with fractional exponent (simplify rule POW5a)
+- Can now build with Lapack (used for solving nonlinear problems). If IPOPT is used, then Lapack is accessed through it.
+  There	is an interface to Lapack in lapack_calls.
+- added support for logical constraints in binary variables and basic logical operators (and, or, not, equal) to AMPL .nl reader
+
 Performance improvements
 ------------------------
+
+- Variable conflict-based addition of Schreier-Sims cuts for symmetry handling in prop_symmetry.c does no longer use
+  an expensive explicit conflict graph construction.
 
 Examples and applications
 -------------------------
@@ -19,20 +30,53 @@ Interface changes
 
 ### Deleted and changed API methods
 
+- SCIPtpiInitLock(), SCIPtpiDestroyLock(), SCIPtpiInitCondition(), SCIPtpiDestroyCondition() now take a double
+  pointer to SCIP_LOCK/SCIP_CONDITION, respectively.
+
+- Renamed SCIPtpiSumbitJob() to SCIPtpiSubmitJob().
+
 ### New API functions
+
+- new functions for interfacing with Lapack:
+  SCIPlapackIsAvailable(), SCIPlapackIsAvailable(),
+  SCIPlapackComputeEigenvalues(), and SCIPlapackSolveLinearEquations
+
+  These functions should be used instead of SCIPisIpoptAvailableIpopt(), SCIPcallLapackDsyevIpopt(), and
+  SCIPsolveLinearEquationsIpopt() in the context of computing eigenvalues or solving linear equations. If IPOPT is available,
+  the calls will be passed on.
+- SCIPmultiplyBySumExprSum(), SCIPpowerExprSum()
+- SCIPsetParam()
+- SCIPgetPrimalDualIntegral() returns the primal dual integral stored in the statistics
 
 ### Command line interface
 
+- Added optional parameter -i when calling SCIP in AMPL-mode (-AMPL parameter).
+  If -i is specified, a SCIP shell is started where normally SCIPsolve() would be called.
+
 ### Interfaces to external software
+
+- Added interface to Lapack (used for solving nonlinear problems).
+- The AMPL interface now supports parameters specified in AMPL command scripts via option scip_options.
+  The value of scip_options is expected to be a sequence of parameter names and values, separated by a space, e.g.,
+    `option scip_options 'limits/time 10 display/verblevel 1';`.
+  String values should not be quoted and spaces in string values are not supported.
 
 ### Changed parameters
 
+- Shrunk range of parameter "propagating/symmetry/sstleaderrule" from [0,3] to [0,2], removed "MAXCONFLICTS"-option.
+
 ### New parameters
+
+- expr/pow/expandmaxexponent to specify limit on exponent when to expand power of sum
+- expr/pow/distribfracexponent to enable expanding power of products with fractional exponents
+- expr/product/expandalways to enable expanding any product with sums as factor (that is, also when more than two factors)
 
 ### Data structures
 
 Deleted files
 -------------
+
+- deleted the now unused files: tpi_none.h, tpi_openmp.h, tpi_tnycthrd.h, type_tpi_none.h, type_tpi_openmp.h, type_tpi_tnycthrd.h
 
 Unit tests
 ----------
@@ -45,13 +89,20 @@ Build system
 
 ### Cmake
 
+- New flag -DLAPACK=on for linking with Lapack (must be available in the system)
+
 ### Makefile
+
+- New flag LAPACK for linking with Lapack (must be available in the system)
 
 Fixed bugs
 ----------
 
 Miscellaneous
 -------------
+
+- The TPI has been changed to become mostly independent from the actual parallel interface during compile time.
+  For this, the locks and conditions are now pointers to abstract structs.
 
 Known bugs
 ----------
@@ -104,6 +155,7 @@ Build system
 ### Makefile
 
 - avoid warnings about unrecognized compiler warning silencing options when compilation with GCC fails
+- fixed that compilation with MS/Intel compilers on Windows and Cray compilers was broken when enabling PAPILO
 
 Fixed bugs
 ----------
